@@ -1,0 +1,7 @@
+n_sites=1495
+n_samples=4
+n_celltypes=6
+samples=['SRR1550981', 'SRR1551053', 'SRR1551060', 'SRR1551074']
+cell_types=['Bcells', 'CD4', 'CD8', 'Monocytes', 'NK', 'Neutrophils']
+source_tensor=run/e_hat_tensor_multidonor.h5
+source_proportions=run/proportions_multidonor_music.csv

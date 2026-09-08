@@ -1,0 +1,77 @@
+Package: caEditR
+Title: Cell-Type-Resolved RNA-Editing Deconvolution (caRD-edit, caNRD-edit, TCA_Like)
+Version: 0.99.0
+Authors@R: person("Haim Krupkin+Claude", role = c("aut", "cre"), email = "haim.krupkin@gmail.com")
+Description: Deconvolves bulk RNA-editing-ratio matrices into per-cell-type
+    editing estimates using three interchangeable methods sharing the same
+    underlying Bayesian per-site estimator: caRD_edit() (reference-based,
+    needs a real sorted-cell-derived mu/sigma2/theta reference), caNRD_edit()
+    (no-reference, self-estimates mu/sigma2 from the bulk cohort itself),
+    and TCA_Like() (a thin wrapper around the real CRAN 'TCA' package, run
+    with proportion-only mixing weights). Also provides
+    estimate_proportions_music(), a thin wrapper around the real 'MuSiC'
+    package for estimating per-sample cell-type proportions from bulk gene
+    expression, estimate_proportions_signature_matrix(), a simpler general
+    NNLS-based (CIBERSORT-style, not literally CIBERSORT) alternative that
+    works with any signature matrix (e.g. LM22, supplied by the user, or
+    the bundled real GSE107011-derived alternative), for when a full
+    multi-subject reference isn't available or appropriate,
+    map_sites_to_genes()/build_coverage_from_expression() for
+    mapping RNA-editing sites to their host gene (hg19/hg38, via the real
+    Bioconductor UCSC TxDb annotation packages) and approximating a
+    per-site coverage matrix from per-sample gene expression, and
+    simulate_reference_and_cohort(), a fast synthetic-data generator for
+    benchmarking all three methods against known ground truth. The core math (compute_effective_weights, binomial_tau2,
+    deconvolve_site) is vendored, UNMODIFIED, from this project's own
+    validated Python implementation (src/catca_edit/core.py,
+    src/catca_edit/no_reference.py) and called in a fresh Python subprocess
+    per operation (via base R's system2(), with JSON in/out via jsonlite) --
+    this package does not re-implement that math in R, to avoid introducing
+    new bugs into already-tested code, and deliberately does NOT embed
+    Python inside the R process (e.g. via reticulate): doing so was found,
+    during development, to fail unpredictably in long-running R sessions
+    where R's own process had already loaded an incompatible system
+    libstdc++ before this package's code ever ran (a well-documented
+    reticulate failure mode, not fixable from within the affected process).
+    Running each operation in a brand-new subprocess, with its own
+    environment set at that subprocess's own exec() time, avoids this
+    entirely and makes library(caEditR) plus a direct function call behave
+    identically regardless of what else has been loaded into the calling
+    R session.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends: R (>= 4.1.0)
+biocViews: Software, StatisticalMethod, RNASeq, GeneExpression, Transcriptomics, Preprocessing
+Imports:
+    jsonlite,
+    stats,
+    utils
+Suggests:
+    TCA,
+    MuSiC,
+    SingleCellExperiment,
+    SummarizedExperiment,
+    Biobase,
+    TOAST,
+    EpiDISH,
+    BiocManager,
+    remotes,
+    nnls,
+    optparse,
+    ggplot2,
+    knitr,
+    rmarkdown,
+    BiocStyle,
+    GenomicFeatures,
+    GenomicRanges,
+    IRanges,
+    S4Vectors,
+    AnnotationDbi,
+    org.Hs.eg.db,
+    TxDb.Hsapiens.UCSC.hg19.knownGene,
+    TxDb.Hsapiens.UCSC.hg38.knownGene,
+    testthat (>= 3.0.0)
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0
+RoxygenNote: 8.0.0

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Thin bash entry point for caedit.R -- lets you run:
+#   ./caedit --method caRD --bulk ... --coverage ... --proportions ... --reference-dir ... --out-prefix ...
+# from bash directly, instead of typing `Rscript caedit.R ...`.
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec Rscript "${SCRIPT_DIR}/caedit.R" "$@"
