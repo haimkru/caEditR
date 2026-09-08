@@ -1,20 +1,19 @@
-#' Ensure a set of Bioconductor packages are installed (bootstrapping
-#' `BiocManager` itself first, if needed).
+#' Check that a set of Bioconductor packages are installed, stopping with
+#' an actionable message listing everything missing if not.
 #'
-#' The ONE shared place this package bootstraps Bioconductor packages from
-#' -- used by both `.ensure_music_stack_installed()` (MuSiC) and
-#' `.ensure_genome_annotation_installed()` (genome annotation), so there is
-#' exactly one implementation of "install these Bioconductor packages",
-#' not one per feature. Each package still goes through `.ensure_installed()`
-#' individually (so already-installed packages are skipped, and each
-#' install still goes through `.with_reliable_cran()`'s working-mirror
-#' override).
+#' The ONE shared place this package checks for its Bioconductor
+#' dependencies -- used by `.ensure_genome_annotation_installed()`, so
+#' there is exactly one implementation of "these Bioconductor packages are
+#' required", not one per feature. Deliberately does NOT install anything
+#' automatically (see `.ensure_installed()`'s docstring for why).
 #' @param pkgs character vector of Bioconductor package names.
 #' @keywords internal
 .ensure_bioc_installed <- function(pkgs) {
-  .ensure_installed("BiocManager", function() utils::install.packages("BiocManager"))
-  for (pkg in pkgs) {
-    .ensure_installed(pkg, function() BiocManager::install(pkg, update = FALSE, ask = FALSE))
-  }
-  invisible(TRUE)
+  missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+  if (length(missing) == 0) return(invisible(TRUE))
+  stop(sprintf(
+    "caEditR: the following Bioconductor package(s) are required for this function but not installed: %s. Install with: BiocManager::install(c(%s))",
+    paste(missing, collapse = ", "),
+    paste(sprintf("\"%s\"", missing), collapse = ", ")
+  ), call. = FALSE)
 }

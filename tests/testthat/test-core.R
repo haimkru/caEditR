@@ -93,18 +93,6 @@ test_that("TCA_Like() runs end-to-end when the real TCA package is installed", {
   expect_equal(dim(out$deconvolved$Neutrophils), dim(bulk))
 })
 
-test_that("estimate_proportions_music() runs end-to-end when MuSiC is installed", {
-  skip_if_not_installed("MuSiC")
-  skip_if_not_installed("SingleCellExperiment")
-  extdata <- system.file("extdata", package = "caEditR")
-  ref <- build_music_reference(file.path(extdata, "music_reference_counts.csv"),
-                                file.path(extdata, "music_reference_metadata.csv"))
-  counts <- read.csv(file.path(extdata, "music_reference_counts.csv"), row.names = 1, check.names = FALSE)
-  out <- estimate_proportions_music(as.matrix(counts[, 1:2]), ref)
-  expect_equal(nrow(out), 2)
-  expect_true(all(abs(rowSums(out) - 1) < 1e-6))
-})
-
 test_that("format_site_id() produces the standardized site id format", {
   expect_equal(format_site_id("10", 100232436, "-"), "10:100232436:-")
   expect_equal(format_site_id("chr10", 100232436, "-"), "10:100232436:-")  # "chr" prefix stripped

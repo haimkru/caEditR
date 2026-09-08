@@ -62,7 +62,7 @@
 #'   TPM\\[gene, sample\\] ~= sum_c  proportion\\[sample, c\\] * theta\\[gene, c\\]
 #'
 #' solved by non-negative least squares per gene (expression can't be
-#' negative), via the `nnls` package (already a MuSiC dependency).
+#' negative), via the `nnls` package.
 #'
 #' @param bulk_expression numeric matrix, genes (rows) x samples (columns),
 #'   e.g. TPM or normalized counts.

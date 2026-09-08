@@ -44,11 +44,21 @@ outside `caEditR/` itself.
 **Minimum requirements on the new machine**: R >= 4.1, and a Python 3
 interpreter with `numpy`/`scipy` installed (see "Python configuration"
 below) — that's it for the core methods (`caRD_edit()`/`caNRD_edit()`/
-`TCA_Like()`/`simulate_reference_and_cohort()`). Everything else
-(`TCA`, `MuSiC`, genome-annotation packages, etc.) auto-installs itself
-the first time you actually use a function that needs it (see "Optional
-dependencies auto-install themselves" below) — nothing to pre-install by
-hand.
+`TCA_Like()`/`simulate_reference_and_cohort()`). Everything else (`TCA`,
+genome-annotation packages, etc.) is an optional declared dependency (see
+"Optional dependencies" below) — install it yourself with
+`install.packages()`/`BiocManager::install()` only if you use the specific
+function that needs it.
+
+**Note on MuSiC**: earlier, non-Bioconductor versions of this package also
+wrapped `MuSiC` (`build_music_reference()`/`estimate_proportions_music()`)
+for estimating cell-type proportions from a multi-subject sorted-cell
+reference. `MuSiC` is GitHub-only (not on CRAN or Bioconductor), so it
+cannot be a dependency of a Bioconductor package; this release does not
+include it. `estimate_proportions_signature_matrix()` (NNLS against a
+single signature matrix, e.g. your own LM22 or the bundled
+`blood_signature_matrix.csv`) remains available as a lighter-weight
+alternative.
 
 ## Install
 
@@ -75,12 +85,12 @@ be using, run `dev_reinstall.R` instead of a plain `library()` call every
 session — see that file for details. It's self-locating (works from
 wherever you copied `caEditR/` to), so no path editing is needed.
 
-**If you hit compiler/toolchain errors** installing Bioconductor packages
-like `MuSiC`'s dependencies on your own R installation (a real, seen-in-
-practice failure mode, unrelated to caEditR's own code — see
-"Optional dependencies auto-install themselves" below): the most reliable
-fix is a clean, purpose-built R environment with a known-working compiler
-toolchain, e.g. via conda/mamba:
+**If you hit compiler/toolchain errors** installing optional Bioconductor
+packages (e.g. `GenomicFeatures`'s `Rhtslib`) on your own R installation (a
+real, seen-in-practice failure mode, unrelated to caEditR's own code — see
+"Optional dependencies" below): the most reliable fix is a clean,
+purpose-built R environment with a known-working compiler toolchain, e.g.
+via conda/mamba:
 
 ```bash
 conda create -n caeditr -c conda-forge r-base r-jsonlite python numpy scipy
@@ -93,12 +103,12 @@ versions in `environment.yml`, in the parent repository, for full
 reproducibility of its own real-data results — not required just to run
 caEditR itself.)
 
-**Requirements**: R >= 4.1, `jsonlite`, and a Python interpreter with
+**Requirements**: R >= 4.1, `jsonlite` and `nnls` (both `Imports`, pulled
+in automatically by `install.packages()`), and a Python interpreter with
 `numpy`/`scipy` available to it (see "Python configuration" below).
-Everything else is auto-installed the first time you actually need it (see
-"Optional dependencies auto-install themselves" below) — you do not need
-to manually run any `install.packages()`/`BiocManager::install()` commands
-yourself.
+Everything else is an optional dependency (see "Optional dependencies"
+below) that you install yourself, only if you use the specific function
+that needs it.
 
 ### Python configuration
 
@@ -115,32 +125,35 @@ options(caEditR.python = "/path/to/python3")
 library(caEditR)
 ```
 
-### Optional dependencies auto-install themselves
+### Optional dependencies
 
-`TCA_Like()` needs the CRAN `TCA` package; `build_music_reference()`/
-`estimate_proportions_music()` need `MuSiC` + several Bioconductor
-packages; `map_sites_to_genes()`/`build_coverage_from_expression()` need
-`GenomicFeatures` + a UCSC `TxDb` annotation package (per genome build) +
-`org.Hs.eg.db`; `estimate_proportions_signature_matrix()` only needs the
-lightweight `nnls` package. **None of these need to be installed
-manually** — the first call that actually needs one installs it automatically (printing a
-`message()` first, never silently), routed through one shared installer
-(`.ensure_installed()`/`.with_reliable_cran()` in `zzz.R`) that overrides
-a broken/blocked CRAN mirror automatically (a real issue seen in this
-project's own dev environment) while still resolving Bioconductor-only
-transitive dependencies correctly.
+`TCA_Like()` needs the CRAN `TCA` package; `map_sites_to_genes()`/
+`build_coverage_from_expression()` need `GenomicFeatures` + a UCSC `TxDb`
+annotation package (per genome build) + `org.Hs.eg.db`. These are declared
+in `Suggests:`, not `Imports:` (per Bioconductor policy, this package does
+not install anything on your behalf at runtime) — install whichever one
+you need yourself, e.g.:
 
-**A genuine limitation, stated plainly**: this auto-install machinery
-still depends on your R installation having a *working* C/C++ compiler
-toolchain, since several of these (`MuSiC`'s `MCMCpack` dependency,
-`GenomicFeatures`'s `Rhtslib`) contain compiled code. If your R
-installation's toolchain is itself broken (seen directly on one SCG HPC
-system-R module here: a `configure` script failing with `mv: cannot move
-'conftest.er1' to 'conftest.err'`, unrelated to caEditR), no R package's
-code can repair that — that is exactly the scenario the conda environment
-above sidesteps entirely, since it ships its own known-working compiler.
-`caRD_edit()`/`caNRD_edit()`/`TCA_Like()`/`simulate_reference_and_cohort()`
-do NOT require any compiled optional dependency and are unaffected either way.
+```r
+install.packages("TCA")
+BiocManager::install(c("GenomicFeatures", "org.Hs.eg.db",
+                        "TxDb.Hsapiens.UCSC.hg38.knownGene"))
+```
+
+If a function needs one of these and it isn't installed, it stops with a
+message telling you exactly what to install. `caRD_edit()`/`caNRD_edit()`/
+`estimate_proportions_signature_matrix()`/`simulate_reference_and_cohort()`
+do not require any of these optional packages.
+
+**A genuine limitation, stated plainly**: several of these optional
+packages (`GenomicFeatures`'s `Rhtslib`) contain compiled code, so
+installing them still depends on your R installation having a *working*
+C/C++ compiler toolchain. If your R installation's toolchain is itself
+broken (seen directly on one SCG HPC system-R module here: a `configure`
+script failing with `mv: cannot move 'conftest.er1' to 'conftest.err'`,
+unrelated to caEditR), no R package's code can repair that — that is
+exactly the scenario the conda environment above sidesteps entirely, since
+it ships its own known-working compiler.
 
 ## Quick start — R / RStudio
 
@@ -167,8 +180,8 @@ out2 <- caRD_edit(bulk, proportions = proportions, reference = reference,
                    expression = gene_counts, genome = "hg38")
 ```
 
-**Full worked example on real, public data** (all 3 methods, building your
-own MuSiC reference from scratch, and the expression-derived coverage
+**Full worked example on real, public data** (all 3 methods, signature-
+matrix-based proportion estimation, and the expression-derived coverage
 path above): `inst/examples/run_example.R` — open it in RStudio and source
 it directly, or:
 
@@ -243,11 +256,10 @@ construct one rather than hand-assembling the string yourself.
 |---|---|
 | `reference_mu.csv`, `reference_sigma2.csv`, `reference_theta.csv` | A real caRD-edit reference (1495 RNA-editing sites x 6 blood cell types), trained on real sorted-cell RNA-seq from the public GEO series **GSE60424**. |
 | `example_bulk_editing_ratios.csv` | Real observed bulk RNA-editing ratios for 4 real GSE60424 Whole-Blood samples (one per donor), GRCh38/hg38 coordinates. |
-| `example_bulk_proportions.csv` | Real MuSiC-estimated cell-type proportions for those same 4 samples. |
+| `example_bulk_proportions.csv` | Real cell-type proportions for those same 4 samples, precomputed with MuSiC (not regenerable from within this Bioconductor release — see "Note on MuSiC" above). |
 | `example_bulk_coverage.csv` | **Not real** — a disclosed placeholder (Poisson(mean=30), floored at 10). Real per-site coverage for these exact 4 samples wasn't available in an easily re-exportable format for this package. `example_bulk_gene_counts.csv` below gives a REAL, better alternative via `build_coverage_from_expression()`. |
 | `example_bulk_gene_counts.csv` | REAL featureCounts gene-count output (Ensembl gene ids), same 4 real GSE60424 donors, restricted to the genes needed by this package's own demos (editing sites + the signature matrix below) — for `build_coverage_from_expression()` and `estimate_proportions_signature_matrix()`. |
 | `blood_signature_matrix.csv` | A REAL blood/immune cell-type signature matrix (600 genes x 6 cell types) built from public GEO series **GSE107011** (Monaco et al. 2019 sorted immune-cell RNA-seq, 13 healthy donors) — independent of GSE60424, for `estimate_proportions_signature_matrix()`. Not LM22 (CIBERSORT's own signature matrix): LM22 itself cannot be bundled here, since its license forbids redistribution — see that function's docs for how to supply your own copy instead. |
-| `music_reference_counts.csv`, `music_reference_metadata.csv` | Real GSE60424 sorted-cell gene counts + metadata — the raw inputs used to build a MuSiC reference via `build_music_reference()` (this is how `example_bulk_proportions.csv` above was actually produced). |
 | `example_bulk_proportions_3ct.csv`, `example_theta_3ct.csv`, `example_bulk_editing_ratios_nonzerovar.csv` | Convenience derivatives of the real files above (3-cell-type subset; nonzero-variance-filtered sites) so the bash CLI's `caNRD`/`TCA` examples run out of the box despite the small N=4 example cohort — see the CLI examples and caveats below for why. |
 | `gse64655_*.csv` (`bulk_editing_ratios`, `bulk_coverage`, `bulk_low_coverage`, `bulk_gene_counts`, `proportions`, `reference_mu`/`sigma2`/`theta`, `ground_truth_<celltype>`) | Real data from an INDEPENDENT public dataset, **GSE64655** (Ottoboni et al.), used in `vignette("caEditR")`'s real-data section instead of GSE60424: 8 real bulk PBMC samples (2 donors x 4 timepoints) — twice as many as GSE60424's 4, enough to actually run `caNRD_edit()` — each with REAL per-site coverage (not a placeholder) and, uniquely, a REAL directly-measured ground truth per cell type (that same donor-timepoint's own real sorted-cell sample). `bulk_low_coverage.csv` flags (sample, site) pairs without real coverage, used together with `phi > 0.05` to restrict scoring to "genuine" comparisons only (see the vignette — skipping this filter is a real mistake that was caught and fixed: it made Neutrophils, whose real bulk proportion here is ~0, score against meaningless comparisons). Disclosed: the reference/proportions are pooled (not leakage-free LODO), matching this project's own validated `figures/fig_canrd_real_data_gse64655.py`. |
 
@@ -294,7 +306,7 @@ caEditR/
   inst/cli/              caedit (bash) + caedit.R (Rscript) -- the command-line interface
   inst/examples/         run_example.R -- full RStudio-ready worked example
   vignettes/             caEditR.Rmd -- simulated + real-data walkthrough with plots
-  tests/testthat/        automated tests (all passing; TCA/MuSiC/genome-annotation-dependent
+  tests/testthat/        automated tests (all passing; TCA/genome-annotation-dependent
                          tests skip gracefully if those optional packages aren't installed)
   dev_reinstall.R        run this instead of library() when developing against this source tree
 ```

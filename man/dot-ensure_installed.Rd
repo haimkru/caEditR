@@ -2,24 +2,27 @@
 % Please edit documentation in R/zzz.R
 \name{.ensure_installed}
 \alias{.ensure_installed}
-\title{Ensure an R package is installed, installing it automatically if not.}
+\title{Check that an R package is installed, stopping with an actionable
+message if it is not.}
 \usage{
-.ensure_installed(pkg, install_fn)
+.ensure_installed(pkg, install_fn = NULL)
 }
 \arguments{
-\item{pkg}{package name to check/install.}
+\item{pkg}{package name to check.}
 
-\item{install_fn}{a zero-argument function that installs `pkg` if called.}
+\item{install_fn}{unused; kept so existing call sites don't need to
+change. Earlier versions of this package used it to auto-install
+`pkg` -- removed for Bioconductor compliance.}
 }
 \description{
-Used by `TCA_Like()` (for the real CRAN `TCA` package) and
-`build_music_reference()`/`estimate_proportions_music()` (for `MuSiC`
-and its Bioconductor dependencies) so that a first-time call "just
-works" without the user having to separately run `install.packages()`
-themselves first -- per direct user request. Always prints a clear
-`message()` before installing anything (never silent), and raises an
-informative error (not a cryptic one) if the automatic install itself
-fails (e.g. no network access) or still doesn't produce a loadable
-package.
+Deliberately does NOT install anything automatically: Bioconductor (and
+CRAN) policy prohibits packages from installing other software at
+runtime without explicit user action, and Bioconductor's own build/check
+machines cannot be relied on to have network access while running
+`R CMD check` or building the vignette. `pkg` is always also declared in
+DESCRIPTION's `Suggests` (checked at package-build time) -- this just
+gives a clear, one-line instruction if a user hits the gap at runtime,
+instead of a raw "could not find function" error deep inside
+`TCA_Like()`/`map_sites_to_genes()`/etc.
 }
 \keyword{internal}

@@ -2,8 +2,8 @@
 % Please edit documentation in R/ensure_bioc.R
 \name{.ensure_bioc_installed}
 \alias{.ensure_bioc_installed}
-\title{Ensure a set of Bioconductor packages are installed (bootstrapping
-`BiocManager` itself first, if needed).}
+\title{Check that a set of Bioconductor packages are installed, stopping with
+an actionable message listing everything missing if not.}
 \usage{
 .ensure_bioc_installed(pkgs)
 }
@@ -11,13 +11,10 @@
 \item{pkgs}{character vector of Bioconductor package names.}
 }
 \description{
-The ONE shared place this package bootstraps Bioconductor packages from
--- used by both `.ensure_music_stack_installed()` (MuSiC) and
-`.ensure_genome_annotation_installed()` (genome annotation), so there is
-exactly one implementation of "install these Bioconductor packages",
-not one per feature. Each package still goes through `.ensure_installed()`
-individually (so already-installed packages are skipped, and each
-install still goes through `.with_reliable_cran()`'s working-mirror
-override).
+The ONE shared place this package checks for its Bioconductor
+dependencies -- used by `.ensure_genome_annotation_installed()`, so
+there is exactly one implementation of "these Bioconductor packages are
+required", not one per feature. Deliberately does NOT install anything
+automatically (see `.ensure_installed()`'s docstring for why).
 }
 \keyword{internal}

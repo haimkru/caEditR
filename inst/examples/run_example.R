@@ -87,27 +87,19 @@ out_tca <- TCA_Like(bulk_nz, proportions_3)
 cat("\nTCA_Like(): deconvolved editing ratio, first 3 sites, Neutrophils:\n")
 print(head(out_tca$deconvolved$Neutrophils, 3))
 
-## ---- 4. (Optional) build your own MuSiC reference + proportions from scratch ----
-## This is how `example_bulk_proportions.csv` above was actually produced --
-## shown here so you can run it yourself on your own bulk gene-count data.
-
-sc_ref <- build_music_reference(
-  file.path(extdata, "music_reference_counts.csv"),   # real GSE60424 sorted-cell counts
-  file.path(extdata, "music_reference_metadata.csv")  # real GSE60424 sorted-cell sample metadata
-)
-cat(sprintf("\nBuilt a real MuSiC sorted-cell reference: %d genes x %d samples, %d cell types\n",
-            nrow(sc_ref), ncol(sc_ref), length(unique(SummarizedExperiment::colData(sc_ref)$cellType))))
-# estimate_proportions_music(your_own_bulk_gene_counts, sc_ref)  # needs >= 2 bulk samples
-
-## ---- 5. Estimate proportions via NNLS against a signature matrix ----
-## An alternative to MuSiC that only needs a single representative
-## expression value per gene per cell type (not a full multi-subject
-## reference) -- e.g. your own copy of LM22 (real CIBERSORT signature
-## matrix; register at cibersort.stanford.edu to get one -- its license
-## forbids bundling it here). `blood_signature_matrix.csv` (bundled with
-## this package) is a REAL alternative built from public GEO series
-## GSE107011 (Monaco et al. 2019 immune-cell RNA-seq), independent of
-## GSE60424 -- applying it to `example_bulk_gene_counts.csv` below is
+## ---- 4. Estimate proportions via NNLS against a signature matrix ----
+## `example_bulk_proportions.csv` above was itself estimated via MuSiC
+## from a real multi-subject sorted-cell reference (see the vignette's
+## "Real data" section for that disclosure) -- MuSiC support is not part
+## of this Bioconductor release (it is GitHub-only, not a CRAN/Bioconductor
+## package, so cannot be a dependency here). The alternative below only
+## needs a single representative expression value per gene per cell type
+## (not a full multi-subject reference) -- e.g. your own copy of LM22
+## (real CIBERSORT signature matrix; register at cibersort.stanford.edu to
+## get one -- its license forbids bundling it here). `blood_signature_matrix.csv`
+## (bundled with this package) is a REAL alternative built from public GEO
+## series GSE107011 (Monaco et al. 2019 immune-cell RNA-seq), independent
+## of GSE60424 -- applying it to `example_bulk_gene_counts.csv` below is
 ## genuinely non-circular in every direction.
 
 blood_sig <- read_matrix("blood_signature_matrix.csv")

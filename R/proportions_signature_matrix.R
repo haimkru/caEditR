@@ -11,10 +11,10 @@
 #' approximation of the same idea, and works with ANY signature matrix you
 #' supply.
 #'
-#' Unlike `estimate_proportions_music()` (which needs a real multi-subject
+#' Unlike a full multi-subject-reference method (which needs a real
 #' single-cell/sorted-cell reference to estimate cross-subject gene
-#' weighting -- MuSiC's own specific innovation), this function only needs
-#' a single representative expression value per gene per cell type, e.g.:
+#' weighting), this function only needs a single representative expression
+#' value per gene per cell type, e.g.:
 #' \itemize{
 #'   \item Your own copy of LM22 (Newman et al. 2015's own signature
 #'     matrix), after individually registering at

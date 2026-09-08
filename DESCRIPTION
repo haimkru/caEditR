@@ -1,5 +1,5 @@
 Package: caEditR
-Title: Cell-Type-Resolved RNA-Editing Deconvolution (caRD-edit, caNRD-edit, TCA_Like)
+Title: Cell-Type-Resolved RNA-Editing Deconvolution (caRD-Edit, caNRD-Edit, TCA_Like)
 Version: 0.99.0
 Authors@R: person("Haim Krupkin+Claude", role = c("aut", "cre"), email = "haim.krupkin@gmail.com")
 Description: Deconvolves bulk RNA-editing-ratio matrices into per-cell-type
@@ -9,9 +9,7 @@ Description: Deconvolves bulk RNA-editing-ratio matrices into per-cell-type
     (no-reference, self-estimates mu/sigma2 from the bulk cohort itself),
     and TCA_Like() (a thin wrapper around the real CRAN 'TCA' package, run
     with proportion-only mixing weights). Also provides
-    estimate_proportions_music(), a thin wrapper around the real 'MuSiC'
-    package for estimating per-sample cell-type proportions from bulk gene
-    expression, estimate_proportions_signature_matrix(), a simpler general
+    estimate_proportions_signature_matrix(), a general
     NNLS-based (CIBERSORT-style, not literally CIBERSORT) alternative that
     works with any signature matrix (e.g. LM22, supplied by the user, or
     the bundled real GSE107011-derived alternative), for when a full
@@ -41,22 +39,16 @@ Description: Deconvolves bulk RNA-editing-ratio matrices into per-cell-type
 License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
+SystemRequirements: Python (>= 3.9), numpy, scipy
 biocViews: Software, StatisticalMethod, RNASeq, GeneExpression, Transcriptomics, Preprocessing
 Imports:
     jsonlite,
+    nnls,
     stats,
     utils
 Suggests:
     TCA,
-    MuSiC,
-    SingleCellExperiment,
-    SummarizedExperiment,
-    Biobase,
-    TOAST,
-    EpiDISH,
     BiocManager,
-    remotes,
-    nnls,
     optparse,
     ggplot2,
     knitr,

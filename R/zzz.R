@@ -3,48 +3,6 @@
 
 .caEditR_env <- new.env(parent = emptyenv())
 
-#' A CRAN mirror known to actually work, used ONLY for auto-installs.
-#'
-#' `getOption("repos")` cannot be trusted -- it's frequently left pointing
-#' at a broken/blocked mirror by a user's own `.Rprofile` (seen directly in
-#' this project's own dev environment: a hardcoded plain-http
-#' `cran.us.r-project.org` that 403s). `.ensure_installed()` temporarily
-#' overrides `options(repos=...)` to this mirror for the duration of an
-#' automatic install, then restores whatever was there before -- so
-#' auto-install works regardless of what the calling session's own
-#' `.Rprofile`/environment has configured.
-#' @keywords internal
-.CRAN_MIRROR <- "https://cloud.r-project.org"
-
-#' Run `expr` with `options(repos=...)` temporarily forced to a working
-#' CRAN mirror (`.CRAN_MIRROR`), restoring the previous value afterward --
-#' used by `.ensure_installed()` so `install.packages()`/`BiocManager::install()`/
-#' `remotes::install_github()` (all of which read `options("repos")`) work
-#' even when the ambient repos option is broken.
-#'
-#' IMPORTANT: when `BiocManager` is available, this overrides ONLY the
-#' `CRAN` entry within `BiocManager::repositories()`, not the whole repos
-#' vector -- replacing it entirely (as an earlier version of this function
-#' did) breaks `BiocManager::install()`'s ability to resolve Bioconductor
-#' -only transitive dependencies (e.g. installing `GenomicFeatures` needs
-#' `Rhtslib`/`Rsamtools`/`rtracklayer`, which only exist in Bioconductor's
-#' own repos, not CRAN's) -- confirmed directly: replacing the whole repos
-#' vector made exactly that install fail with "package 'Rhtslib' is not
-#' available for this version of R".
-#' @keywords internal
-.with_reliable_cran <- function(expr) {
-  old <- options()
-  on.exit(options(old), add = TRUE)
-  if (requireNamespace("BiocManager", quietly = TRUE)) {
-    repos <- BiocManager::repositories()
-    repos["CRAN"] <- .CRAN_MIRROR
-    options(repos = repos)
-  } else {
-    options(repos = c(CRAN = .CRAN_MIRROR))
-  }
-  force(expr)
-}
-
 #' Locate a Python interpreter with numpy/scipy, without using reticulate.
 #'
 #' Tries, in order: (1) `options(caEditR.python=...)`, (2) the
@@ -83,59 +41,30 @@
   if (dir.exists(lib_dir)) lib_dir else NA_character_
 }
 
-#' Ensure an R package is installed, installing it automatically if not.
+#' Check that an R package is installed, stopping with an actionable
+#' message if it is not.
 #'
-#' Used by `TCA_Like()` (for the real CRAN `TCA` package) and
-#' `build_music_reference()`/`estimate_proportions_music()` (for `MuSiC`
-#' and its Bioconductor dependencies) so that a first-time call "just
-#' works" without the user having to separately run `install.packages()`
-#' themselves first -- per direct user request. Always prints a clear
-#' `message()` before installing anything (never silent), and raises an
-#' informative error (not a cryptic one) if the automatic install itself
-#' fails (e.g. no network access) or still doesn't produce a loadable
-#' package.
+#' Deliberately does NOT install anything automatically: Bioconductor (and
+#' CRAN) policy prohibits packages from installing other software at
+#' runtime without explicit user action, and Bioconductor's own build/check
+#' machines cannot be relied on to have network access while running
+#' `R CMD check` or building the vignette. `pkg` is always also declared in
+#' DESCRIPTION's `Suggests` (checked at package-build time) -- this just
+#' gives a clear, one-line instruction if a user hits the gap at runtime,
+#' instead of a raw "could not find function" error deep inside
+#' `TCA_Like()`/`map_sites_to_genes()`/etc.
 #'
-#' @param pkg package name to check/install.
-#' @param install_fn a zero-argument function that installs `pkg` if called.
+#' @param pkg package name to check.
+#' @param install_fn unused; kept so existing call sites don't need to
+#'   change. Earlier versions of this package used it to auto-install
+#'   `pkg` -- removed for Bioconductor compliance.
 #' @keywords internal
-.ensure_installed <- function(pkg, install_fn) {
+.ensure_installed <- function(pkg, install_fn = NULL) {
   if (requireNamespace(pkg, quietly = TRUE)) return(invisible(TRUE))
-  message(sprintf(
-    "caEditR: the '%s' package is required but not installed. Installing it automatically now (per this package's design -- see ?%s)...",
-    pkg, pkg
-  ))
-  result <- tryCatch({ .with_reliable_cran(install_fn()); TRUE }, error = function(e) e)
-  # A failed compiled-code install (e.g. a package with C/C++ source, like
-  # MuSiC's MCMCpack dependency, or GenomicFeatures' Rhtslib) is one of the
-  # few auto-install failure modes that ISN'T fixable by anything caEditR's
-  # own code can do -- it means the R installation's own compiler toolchain
-  # is broken, which affects every package trying to compile code there,
-  # not just this one. Pointing at this project's own pinned conda
-  # environment (verified, this whole package's own dev/test environment)
-  # is the most actionable thing to say in that situation.
-  toolchain_hint <- paste(
-    "\nIf this looks like a compiler/toolchain failure (e.g. mentions",
-    "'configure: error', 'compilation failed', or similar above) rather",
-    "than a missing package or network issue: that means this R",
-    "installation's own C/C++ compiler setup is broken, which no R",
-    "package's code can fix. Try this project's own pinned, tested conda",
-    "environment instead (see README.md's 'Install' section):",
-    "conda env create -f environment.yml && conda activate catca-edit."
-  )
-  if (inherits(result, "error")) {
-    stop(sprintf(
-      "caEditR: automatic installation of '%s' failed (%s). Install it manually and retry.%s",
-      pkg, conditionMessage(result), toolchain_hint
-    ), call. = FALSE)
-  }
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    stop(sprintf(
-      "caEditR: '%s' still not available after attempting automatic installation. Install it manually and retry.%s",
-      pkg, toolchain_hint
-    ), call. = FALSE)
-  }
-  message(sprintf("caEditR: '%s' installed successfully.", pkg))
-  invisible(TRUE)
+  stop(sprintf(
+    "caEditR: the '%s' package is required for this function but is not installed. Install it with install.packages('%s') (or BiocManager::install('%s') if it is a Bioconductor package) and retry.",
+    pkg, pkg, pkg
+  ), call. = FALSE)
 }
 
 #' Run one operation of the vendored Python math in a FRESH subprocess.
