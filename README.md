@@ -7,7 +7,7 @@ MIT License (see `LICENSE`). Written by Haim Krupkin+Claude.
 
 ```r
 if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
-remotes::install_github("haimkru/caEditR")
+remotes::install_github("haimkru/caEditR", build_vignettes = TRUE)
 ```
 
 ## Example
