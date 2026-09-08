@@ -33,87 +33,24 @@ All three return the same output shape: `$deconvolved`, a named list of per cell
 
 **Key point : ** All the code is in R is also a wrapper to real code we wrote in python, as inital development was done in python.
 
+# Installation
+
+`caEditR` is installed like any other Bioconductor package:
+
+```{r install, eval = FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("caEditR")
+```
+
 ```{r load}
-# ALWAYS reinstall from source, unconditionally, then load. This chunk
-# ALWAYS runs (unlike an eval=FALSE chunk, which "Run All"/Knit silently
-# skip -- confirmed directly to be exactly why a one-off manual reinstall
-# step kept getting missed).
-#
-# An earlier version of this chunk tried to be "smart" and only reinstall
-# when a specific marker file was missing (to skip the reinstall when not
-# needed) -- that broke the FIRST time a new file was added to the source
-# after the marker was chosen: the marker file itself was already present
-# in a stale install from before, so the check said "not stale" even
-# though newer files were genuinely missing. Since caEditR has no compiled
-# code, a full reinstall takes ~3-4 seconds -- there's no real cost to
-# just always doing it, and it can't go stale the way a marker-file check
-# can.
-#
-# Also pins the install AND the reload to the exact same, explicit
-# library (rather than letting R pick whichever happens to be first in
-# .libPaths()) -- a plain install.packages(pkg_dir, repos=NULL,
-# type="source") with no lib= argument can silently install into a
-# DIFFERENT library than the one library(caEditR) subsequently loads
-# from, if something earlier in the session (e.g. your own ~/.Rprofile)
-# has reordered .libPaths() -- the "reinstalled it but nothing changed"
-# symptom. See dev_reinstall.R (in the package source directory) for the
-# same logic as a standalone, reusable script.
-#
-# PORTABLE package-root detection: does NOT hardcode this cluster's own
-# path. knitr::current_input(dir=TRUE) resolves to wherever THIS .Rmd
-# file itself actually lives when being knit -- so on a totally different
-# computer, as long as the whole caEditR/ folder was copied there intact,
-# this finds the right local copy automatically (vignettes/caEditR.Rmd's
-# parent's parent = the package root). Falls back to this cluster's own
-# path, then the current working directory, only if that self-detection
-# doesn't work (e.g. running chunks interactively rather than knitting).
-
-pkg_dir <- local({
-  candidates <- c(
-    tryCatch(dirname(dirname(knitr::current_input(dir = TRUE))), error = function(e) NA_character_),
-    "/oak/stanford/groups/smontgom/hkrupkin/RNA_Editing_deconvolution/catca-edit-hpc/caEditR",
-    "."
-  )
-  for (d in candidates) if (!is.na(d) && file.exists(file.path(d, "DESCRIPTION"))) return(normalizePath(d))
-  stop("Could not locate the caEditR source directory -- if you copied this ",
-       "package to a new machine, make sure vignettes/caEditR.Rmd's own ",
-       "parent folder structure (caEditR/vignettes/caEditR.Rmd) was preserved.",
-       call. = FALSE)
-})
-
-if ("caEditR" %in% loadedNamespaces()) try(unloadNamespace("caEditR"), silent = TRUE)
-target_lib <- tryCatch(dirname(find.package("caEditR", quiet = TRUE)), error = function(e) NULL)
-if (is.null(target_lib) || !length(target_lib)) target_lib <- .libPaths()[1]
-.libPaths(c(target_lib, .libPaths()))
-
-# NOT quiet=TRUE: a real install failure (seen directly on a fresh macOS R
-# install) was reduced to an unhelpful "non-zero exit status" with no way
-# to see WHY -- always show the real install log.
-#
-# Pre-install caEditR's own Imports (jsonlite) from a real, working CRAN
-# mirror FIRST, before installing caEditR itself: a real failure, seen
-# directly on a fresh macOS R install with no packages yet -- "ERROR:
-# dependency 'jsonlite' is not available for package 'caEditR'". This
-# never showed up testing on this cluster's own R install, where jsonlite
-# already happened to be present. The natural-looking fix -- just pass a
-# real `repos=` straight to the caEditR install call below instead of
-# NULL -- does NOT work: confirmed directly that once `repos` is
-# non-NULL, install.packages() treats `pkgs` as a package NAME to look up
-# in that repo instead of recognizing it as a real local directory
-# ("package '<path>' is not available for this version of R"). So `repos
-# = NULL` is required for the LOCAL caEditR install itself; the fix is to
-# make sure its dependencies are already satisfied before that call runs.
-if (!requireNamespace("jsonlite", quietly = TRUE)) {
-  install.packages("jsonlite", repos = "https://cloud.r-project.org")
-}
-install.packages(pkg_dir, repos = NULL, type = "source", lib = target_lib)
-
 library(caEditR)
 ```
 
 ```{r ensure-tca, eval = FALSE}
-#sometimes, ther eare issues with the installation of TCA, as this library is has a wrapper around TCA.
-caEditR:::.ensure_installed("TCA", function() utils::install.packages("TCA"))
+# TCA_Like() wraps the real CRAN 'TCA' package (a Suggests, not a hard
+# dependency); if it isn't already installed, install it separately:
+caEditR:::.ensure_installed("TCA")
 ```
 
 # Simulate the cohort
