@@ -1,7 +1,7 @@
 ---
 title: "caEditR: cell-type-resolved RNA-editing deconvolution Example Script"
 author: "Haim Krupkin+Claude"
-date: "`r Sys.Date()`"
+date: "`09.13.2026"
 output:
   rmarkdown::html_document:
     toc: true
@@ -18,7 +18,7 @@ print("this is a test of printing capabilites :)")
 ```
 
 # Introduction
-
+contact hkrupkin@stanford.edu/haim.krupkin@gmail.com if problems
 `caEditR`tool stuite helps us deconvolve a bulk RNA-editing-ratio matrix (sites x samples) into
 per-cell-type per editing site RNA Editing estimates. Specifically, the suite has in it 3 methods:
 
