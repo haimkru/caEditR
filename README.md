@@ -18,3 +18,5 @@ Please read the vignette and run it a single time, it should work end to end.
 ```r
 vignette("caEditR")
 ```
+
+# For problems - please contant hkrupkin@stanford.edu
