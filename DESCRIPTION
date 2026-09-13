@@ -2,7 +2,7 @@ Package: caEditR
 Title: Cell-Type-Resolved RNA-Editing Deconvolution (caRD-Edit, caNRD-Edit, TCA_Like)
 Version: 0.99.0
 Authors@R: person("Haim Krupkin+Claude", role = c("aut", "cre"), email = "haim.krupkin@gmail.com")
-Description: Deconvolves bulk RNA-editing-ratio matrices into per-cell-type
+Description: Brief description- this package enablers the cell type deconvultion of bulk rna sampels into invididual matrices of cell type specific RNA editing. Deconvolves bulk RNA-editing-ratio matrices into per-cell-type
     editing estimates using three interchangeable methods sharing the same
     underlying Bayesian per-site estimator: caRD_edit() (reference-based,
     needs a real sorted-cell-derived mu/sigma2/theta reference), caNRD_edit()
