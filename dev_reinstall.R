@@ -102,7 +102,7 @@ if (!file.exists(marker)) {
   ), target_lib, loaded_from, basename(marker), target_lib), call. = FALSE)
 }
 
-message("caEditR reinstalled from source and loaded fresh: ", pkg_dir,
+message("caEditR reinstalled from source and loaded fresh: if issues arise, please try to troubleshoot locally, if still stuck, contact hkrupkin@stanford.edu/haim.krupkin@gmail.com", pkg_dir,
         " (library: ", target_lib, ", verified up to date)")
 
 # Install TCA alongside caEditR itself, right here (AFTER install+load has
