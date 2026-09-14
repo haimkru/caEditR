@@ -1,8 +1,7 @@
 """Core caTCA-edit math: coverage-aware effective weights, binomial noise, and the
 conditional (weighted-Gaussian) per-cell-type editing estimator.
 
-This module has zero I/O and zero dependence on any external bioinformatics tool.
-It implements exactly the derivation in the methods document:
+It implements exactly the derivation:
 
     E_bulk[i,s] = sum_c phi[i,s,c] * e[i,s,c]                      (mixing equation)
     phi[i,s,c]  = p[i,c] * theta[c,s] / sum_c' p[i,c'] * theta[c',s]  (effective weight)
@@ -10,11 +9,8 @@ It implements exactly the derivation in the methods document:
 
     e_hat[i,s]  = (phi phi^T / tau2 + Sigma^-1)^-1 (E_bulk*phi/tau2 + Sigma^-1 mu)
 
-When theta is uniform across cell types, phi reduces to p and the estimator reduces
-exactly to TCA mixing -- TCA's own proportion-only mixing equation (Rahmani et al.
-2019, eq. 9), applied through the same externally-supplied reference this module
-already uses, not TCA's own reference-free estimation algorithm -- which is checked
-by `test_reduction_to_tca` in tests/test_toy.py.
+
+This here is the real orignal code, and whats in it is crucial for the function of htis package.
 """
 
 from __future__ import annotations
