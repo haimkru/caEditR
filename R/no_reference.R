@@ -3,14 +3,7 @@
 #' Thin wrapper around the vendored, unmodified
 #' `no_reference.estimate_no_reference_params` (Python, run in a fresh
 #' subprocess -- see `.run_python_op()`) -- caNRD-edit's core estimator.
-#' Given ONE site's bulk observations across many samples plus each
-#' sample's own effective mixing weight (phi) and measurement-noise
-#' variance (tau2), estimates the per-cell-type mean (`mu_hat`, weighted
-#' least squares) and variance (`sigma2_hat`, method of moments) WITHOUT any
-#' sorted-cell reference data. See CARD_CANRD_EDIT_MATH_REFERENCE.md section
-#' 5 for the full derivation, and CANRD_EDIT_3CELLTYPE_WORKED_EXAMPLE.md for
-#' a worked numeric example including this estimator's real failure modes.
-#'
+#' it uses a refrence to derive for a sample whats its cell type specific RNA editing levels
 #' @param e_bulk numeric vector, length N, observed bulk editing ratio per sample.
 #' @param phi numeric matrix, N x C, each row an effective mixing weight
 #'   vector (sums to 1) -- see `compute_effective_weights()`.
