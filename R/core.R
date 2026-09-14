@@ -1,11 +1,6 @@
 #' Compute the coverage-aware effective mixing weight phi
 #'
-#' Thin wrapper around the vendored, unmodified `core.compute_effective_weights`
-#' (Python, run in a fresh subprocess -- see `.run_python_op()`). `phi[c] =
-#' p[c]*theta[c] / sum(p*theta)` -- the fraction of a bulk sample's
-#' sequencing signal at one site attributable to each cell type, accounting
-#' for both cell-type proportion AND relative gene expression (not
-#' proportion alone).
+#' This is the core of the algorithm, and contains the main points of RNA editing deconvultion.
 #'
 #' @param p numeric vector, cell-type proportions for one sample (sums to 1).
 #' @param theta numeric vector, same length as `p`, relative expression of
