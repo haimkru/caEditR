@@ -1,31 +1,6 @@
 #' Simulate a synthetic ground-truth reference (mu, sigma2, theta)
 #'
 #' Thin wrapper around the vendored, unmodified `simulate.make_reference`
-#' (Python, run in a fresh subprocess) -- the exact same simulator used
-#' throughout the parent project's own validation figures (e.g.
-#' `figures/fig_canrd_n_sweep_r_squared.py`). Not a new simulation model.
-#'
-#' @param n_sites number of synthetic RNA-editing sites.
-#' @param n_celltypes number of cell types.
-#' @param theta_skew fold-enrichment applied to one randomly-chosen cell
-#'   type's expression, for the sites flagged as skewed (1.0 = no skew).
-#'   When `theta_skew_sd > 0`, this is the MEAN of a per-site distribution
-#'   rather than one fixed value applied identically to every skewed site.
-#' @param theta_skew_sd if > 0 (default 0, matching the original fixed-
-#'   multiplier behavior), each skewed site's own fold-enrichment is drawn
-#'   independently from `Normal(theta_skew, theta_skew_sd)` (floored at
-#'   1.0) instead of every skewed site getting the identical `theta_skew`
-#'   value -- i.e. `theta` genuinely VARIES from site to site, as real
-#'   per-gene expression patterns would, rather than being one constant
-#'   skew level everywhere.
-#' @param frac_skewed_genes fraction of sites with skewed (vs. uniform) theta.
-#' @param seed RNG seed, for full determinism.
-#' @param mu_mode "uniform" (mu ~ Uniform(0.05,0.60) per site per celltype)
-#'   or "normal" (mu ~ Normal(mu_mean, mu_sd), clipped to \\[0,1\\]).
-#' @param mu_mean,mu_sd used only when `mu_mode="normal"`.
-#' @return list(mu, sigma2, theta) (each sites x celltypes matrix) and
-#'   `enriched_celltype` (integer vector, length sites, 0-indexed -- which
-#'   cell type is expression-enriched at each site, or -1 if not skewed).
 #' @examples
 #' ref <- simulate_reference(n_sites = 5, n_celltypes = 3, seed = 1)
 #' dim(ref$mu)
@@ -200,17 +175,6 @@ simulate_reference_and_cohort <- function(n_sites = 50, n_celltypes = 6,
   site_ids <- out$site_ids
   sample_ids <- out$sample_ids
 
-  # IMPORTANT: jsonlite::fromJSON(simplifyVector=TRUE) already parses nested
-  # JSON arrays into correctly-shaped, correctly-axis-ordered R matrices/
-  # arrays directly (verified empirically: a Python (a,b) list-of-lists
-  # becomes an R matrix of dim (a,b), preserving axis order exactly; a
-  # Python list of C (a,b) matrices becomes an R array of dim (C,a,b)). An
-  # earlier version of this function additionally ran the result through
-  # `matrix(unlist(x), ..., byrow=TRUE)`, which -- applied to data that was
-  # ALREADY correctly shaped -- silently scrambled it (caught by
-  # `caRD_edit()`/`TCA_Like()` producing degenerate/invalid output in
-  # testing). Fixed by using jsonlite's own output directly, only adding
-  # `dimnames()`.
   with_dn <- function(m, dn) { dimnames(m) <- dn; m }
 
   reference_true <- list(
