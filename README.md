@@ -1,6 +1,8 @@
 # caEditR
 
-MIT License (see `LICENSE`). Written by Haim Krupkin+Claude.
+MIT License (see `LICENSE`). 
+
+Written by Haim Krupkin+Claude.
 
 
 ## Install in R
