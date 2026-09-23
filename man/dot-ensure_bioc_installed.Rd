@@ -11,10 +11,7 @@ an actionable message listing everything missing if not.}
 \item{pkgs}{character vector of Bioconductor package names.}
 }
 \description{
-The ONE shared place this package checks for its Bioconductor
-dependencies -- used by `.ensure_genome_annotation_installed()`, so
-there is exactly one implementation of "these Bioconductor packages are
-required", not one per feature. Deliberately does NOT install anything
-automatically (see `.ensure_installed()`'s docstring for why).
+Check that a set of Bioconductor packages are installed, stopping with
+an actionable message listing everything missing if not.
 }
 \keyword{internal}

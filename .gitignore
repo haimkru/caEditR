@@ -13,3 +13,5 @@ inst/doc/
 .DS_Store
 .claude/
 example_run_local_output/
+__pycache__/
+*.pyc

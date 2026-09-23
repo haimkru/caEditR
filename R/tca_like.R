@@ -1,7 +1,19 @@
 #' Deconvolve bulk editing ratios with the real CRAN TCA package
 #'
 #' Thin wrapper around the real `TCA` package's own `tca()` + `tensor()`
-#' (Rahmani et al. 2019) -- NOT a re-implementation. 
+#' (Rahmani et al. 2019) -- NOT a re-implementation.
+#' @param bulk_editing numeric matrix, sites (rows) x samples (columns),
+#'   observed bulk editing ratios in \\[0,1\\].
+#' @param proportions numeric matrix, samples (rows) x cell types (columns),
+#'   each row summing to 1 (e.g. from `estimate_proportions_music()`).
+#' @param ... additional arguments passed through to `TCA::tca()` (e.g.
+#'   `C1`, `tau`, `parallel`, `num_cores`).
+#' @return a list with:
+#'   \describe{
+#'     \item{deconvolved}{named list of matrices, one per cell type, each
+#'       sites x samples -- the deconvolved per-cell-type editing estimate.
+#'       Same output shape/name as `caRD_edit()`/`caNRD_edit()`.}
+#'   }
 #' @examples
 #' cohort <- simulate_reference_and_cohort(
 #'   n_sites = 5, n_celltypes = 3, n_reference_samples = 12, n_deconvolve_samples = 20, seed = 1

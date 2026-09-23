@@ -19,12 +19,7 @@ the gene containing this site in each cell type.}
 numeric vector of weights summing to 1.
 }
 \description{
-Thin wrapper around the vendored, unmodified `core.compute_effective_weights`
-(Python, run in a fresh subprocess -- see `.run_python_op()`). `phi[c] =
-p[c]*theta[c] / sum(p*theta)` -- the fraction of a bulk sample's
-sequencing signal at one site attributable to each cell type, accounting
-for both cell-type proportion AND relative gene expression (not
-proportion alone).
+This is the core of the algorithm, and contains the main points of RNA editing deconvultion.
 }
 \examples{
 compute_effective_weights(c(0.60, 0.35, 0.05), c(20, 80, 15))

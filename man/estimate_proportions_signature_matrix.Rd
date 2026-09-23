@@ -20,35 +20,7 @@ a data.frame, samples (rows) x cell types (columns, from
   `colnames(signature_matrix)`), each row summing to (approximately) 1.
 }
 \description{
-A general, simplified, CIBERSORT-STYLE deconvolution: for each bulk
-sample, solves `signature_matrix %*% fractions ~= bulk_expression[,sample]`
-by non-negative least squares (`nnls::nnls()`, the same package already
-used by `estimate_theta_nnls()`), then normalizes the fitted fractions
-to sum to 1. This is NOT literally CIBERSORT -- the real CIBERSORT
-algorithm (Newman et al. 2015, Nature Methods) uses nu-support-vector
-regression, not plain NNLS -- but per-sample NNLS against a curated
-signature matrix is a legitimate, commonly-used simplified
-approximation of the same idea, and works with ANY signature matrix you
-supply.
-}
-\details{
-Unlike a full multi-subject-reference method (which needs a real
-single-cell/sorted-cell reference to estimate cross-subject gene
-weighting), this function only needs a single representative expression
-value per gene per cell type, e.g.:
-\itemize{
-  \item Your own copy of LM22 (Newman et al. 2015's own signature
-    matrix), after individually registering at
-    cibersort.stanford.edu -- LM22 itself CANNOT be bundled or
-    downloaded by this package due to its redistribution-restricted
-    license; read it in yourself, e.g.
-    \code{read.delim("LM22.txt", row.names = 1)}.
-  \item `blood_signature_matrix.csv` (bundled with this package -- see
-    `@examples`): a REAL, freely-redistributable alternative built from
-    public GEO series GSE107011 (Monaco et al. 2019 ABIS immune-cell
-    RNA-seq reference, 13 healthy donors), independent of both LM22 and
-    this package's own GSE60424-derived data used elsewhere.
-}
+this here is NNLS to get the per cell type proportions according to a signature matrix.
 }
 \examples{
 extdata <- system.file("extdata", package = "caEditR")

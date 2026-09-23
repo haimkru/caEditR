@@ -94,6 +94,11 @@ a list with the same shape as `caRDv0_edit()`'s return
   `status`) that `caRDv0_edit()` never provided at all.
 }
 \description{
+Reference-based sibling of `caNRD_edit()`. Deconvolves a bulk RNA-editing
+ratio matrix into per-cell-type estimates using a REAL sorted-cell-derived
+reference.
+}
+\details{
 A methodology-level fix for the same real failure mode diagnosed in
 `caNRD_edit()`, confirmed to also be present in this package's own
 bundled real reference: when `reference$theta` comes from an estimation
@@ -107,8 +112,7 @@ by `load_reference()`) has 4.5% of its entries sitting exactly at the
 `0.001` estimation floor, and its 99th-percentile per-site max/min theta
 ratio reaches ~24,700x -- the same mechanism, present in real shipped
 data, not a hypothetical concern.
-}
-\details{
+
 This is not a numerical bug in `caRDv0_edit()`'s solver, and it is not
 specific to self-estimation (`caRD_edit()` uses a real, externally
 supplied `mu`/`sigma2` reference, not a self-estimated one) -- the

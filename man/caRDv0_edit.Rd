@@ -84,12 +84,7 @@ the original, unfiltered behavior (e.g. to reproduce old results).
 \details{
 Reference-based sibling of `caNRD_edit()`. Deconvolves a bulk RNA-editing
 ratio matrix into per-cell-type estimates using a REAL sorted-cell-derived
-reference (mean/variance per cell type per site, from
-`load_reference()`/`estimate_reference_params`-style data). Internally
-this is a single subprocess call to the vendored, unmodified, already-
-vectorized `core.deconvolve()` (Python) -- the exact same function this
-project's own real GTEx pipeline uses -- not a re-implementation. See
-CARD_CANRD_EDIT_MATH_REFERENCE.md sections 3-4 for the full math.
+reference.
 }
 \examples{
 cohort <- simulate_reference_and_cohort(

@@ -26,17 +26,7 @@ a list with:
 }
 \description{
 Thin wrapper around the real `TCA` package's own `tca()` + `tensor()`
-(Rahmani et al. 2019) -- NOT a re-implementation. Run at TCA's own
-default settings (`tau=NULL` self-estimated, `vars.mle=FALSE`,
-`constrain_mu=FALSE`, `max_iters=10`) -- the same "out of the box" call
-this project's own `figures/fig_canrd_vs_real_tca_n_sweep.py` used to
-compare real TCA against caNRD-edit. TCA uses ONLY cell-type proportions
-(`W`) as its mixing weight -- no gene-expression-based `theta` weighting
-and no per-site/per-sample coverage-aware noise (a single global `tau`
-shared across every feature and sample) -- see
-CARD_CANRD_EDIT_MATH_REFERENCE.md and
-figures/out/fig_canrd_vs_real_tca_n_sweep.readme.txt for exactly how and
-why this differs from caRD_edit()/caNRD_edit().
+(Rahmani et al. 2019) -- NOT a re-implementation.
 }
 \examples{
 cohort <- simulate_reference_and_cohort(

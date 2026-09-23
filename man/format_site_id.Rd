@@ -18,7 +18,7 @@ character vector of standardized site ids, recycled to the
   longest of `chrom`/`pos`/`strand`.
 }
 \description{
-Every function in this package that takes or returns RNA-editing site
+This here is mostly for conveneince. Every function in this package that takes or returns RNA-editing site
 ids (`bulk_editing`/`coverage` row names, `map_sites_to_genes()`,
 `build_coverage_from_expression()`, `simulate_reference_and_cohort()`,
 etc.) uses exactly ONE standardized id format: `"chrom:pos"` or

@@ -124,16 +124,7 @@ comparisons used to validate `caNRD_edit()`'s current gating).
 \details{
 No-reference sibling of `caRD_edit()`. Deconvolves a bulk RNA-editing
 ratio matrix into per-cell-type estimates WITHOUT any sorted-cell
-reference -- the per-site reference (mu, sigma2) is self-estimated
-directly from this same bulk cohort (`estimate_no_reference_params()`),
-using only each sample's cell-type proportions and a per-site relative
-expression weight (`theta`, e.g. from `estimate_theta_nnls()`). See
-CARD_CANRD_EDIT_MATH_REFERENCE.md section 5 and
-CANRD_EDIT_3CELLTYPE_WORKED_EXAMPLE.md for the full derivation and its
-real failure modes (this estimator can be unstable when a cell type's
-`phi` barely varies across the cohort -- see the `condition_number` and
-`marginal_n` diagnostics returned below; do not trust a site's estimate
-without checking them).
+reference. Which is in my professional opinion... is cool.
 
 Internally: ONE subprocess call runs the full per-site loop (one
 `estimate_no_reference_params()` fit per site, then one

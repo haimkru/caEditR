@@ -158,6 +158,11 @@ a list with the same shape as `caNRDv0_edit()`'s return
   rather than a numeric estimate.
 }
 \description{
+No-reference sibling of `caRD_edit()`. Deconvolves a bulk RNA-editing
+ratio matrix into per-cell-type estimates WITHOUT any sorted-cell
+reference. Which is in my professional opinion... is cool.
+}
+\details{
 A methodology-level fix for a real failure mode found running the
 original, ungated estimator (now preserved as `caNRDv0_edit()`)
 genome-wide on real data: when `theta` comes from an NNLS fit with a
@@ -171,8 +176,7 @@ resulting per-site regression became astronomically ill-conditioned
 (condition numbers past 1e11), collapsing the per-sample estimate to a
 near-constant, unconstrained value landing outside \[0,1\] for roughly a
 third of all outputs.
-}
-\details{
+
 This is not a numerical bug in `caNRDv0_edit()`'s solver: feeding it
 physically implausible weights and asking it to separate every cell type
 when only one or two are actually identifiable at a site will always

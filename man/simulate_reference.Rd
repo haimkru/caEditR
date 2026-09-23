@@ -50,9 +50,6 @@ list(mu, sigma2, theta) (each sites x celltypes matrix) and
 }
 \description{
 Thin wrapper around the vendored, unmodified `simulate.make_reference`
-(Python, run in a fresh subprocess) -- the exact same simulator used
-throughout the parent project's own validation figures (e.g.
-`figures/fig_canrd_n_sweep_r_squared.py`). Not a new simulation model.
 }
 \examples{
 ref <- simulate_reference(n_sites = 5, n_celltypes = 3, seed = 1)
