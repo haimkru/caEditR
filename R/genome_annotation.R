@@ -89,9 +89,11 @@ format_site_id <- function(chrom, pos, strand = "*") {
 #' `..hg38..`), plus `org.Hs.eg.db` to translate its Entrez gene ids to
 #' Ensembl gene ids -- not a new/custom gene-annotation source. Both
 #' annotation packages (plus their `GenomicFeatures`/`GenomicRanges`
-#' dependencies) are installed automatically on first use if missing (see
-#' `.ensure_genome_annotation_installed()`), same auto-install design as
-#' `TCA_Like()`/`estimate_proportions_music()` elsewhere in this package.
+#' dependencies) are `Suggests`, not `Imports`: if any are missing, this
+#' stops with a `BiocManager::install(...)` message rather than
+#' installing them automatically (see `.ensure_genome_annotation_installed()`
+#' / `.ensure_bioc_installed()` -- caEditR does not auto-install optional
+#' dependencies, per Bioconductor policy).
 #'
 #' Each site is matched to any gene whose body overlaps its genomic
 #' position. If a site's own strand is known (`"chrom:pos:strand"`, this

@@ -2,7 +2,8 @@
 % Please edit documentation in R/caRD_edit.R
 \name{caRD_edit}
 \alias{caRD_edit}
-\title{caRD-edit: reference-based cell-type deconvolution of RNA-editing ratios}
+\title{caRD-edit: floor-aware reference-based cell-type deconvolution (the
+default, gated implementation)}
 \usage{
 caRD_edit(
   bulk_editing,
@@ -10,6 +11,12 @@ caRD_edit(
   proportions,
   reference,
   min_coverage = 10,
+  theta_floor = NULL,
+  floor_tol = NULL,
+  min_identifiable_celltypes = 1,
+  min_mean_phi = 0.1,
+  boundary_tiny_tol = 0.01,
+  boundary_clip_tol = 0.05,
   expression = NULL,
   genome = c("hg19", "hg38"),
   coverage_scale = 1,
@@ -39,6 +46,33 @@ matrix (e.g. from `load_reference()`).}
 \item{min_coverage}{sites/samples with coverage below this are still
 deconvolved but flagged in the `low_coverage` output (default 10).}
 
+\item{theta_floor}{the floor value used when `reference$theta` was
+estimated (e.g. `estimate_theta_nnls()`'s own `floor` argument,
+default `1e-3`). If `NULL` (default), auto-detected as the single most
+frequent value in `reference$theta`.}
+
+\item{floor_tol}{absolute tolerance for "at the floor" (default: the
+smaller of `1e-9` and `theta_floor / 1e6`).}
+
+\item{min_identifiable_celltypes}{minimum number of non-floor,
+non-negligible cell types a site needs to attempt deconvolution at all
+(default 1 -- a site where only ONE cell type carries real signal
+still gets a genuine, meaningful estimate for that one cell type).}
+
+\item{min_mean_phi}{minimum mean effective mixing weight (`phi`, see
+`compute_effective_weights()`) a cell type must carry, averaged across
+samples, to be considered identifiable at a site (default `0.10`) --
+see `caNRD_edit()`'s own docs for the full justification (confirmed
+directly, in that context, that phi in the 1-10%% range still only
+reaches correlation -0.06 to 0.17 with known ground truth).}
+
+\item{boundary_tiny_tol, boundary_clip_tol}{same three-way boundary
+handling as `caNRD_edit()` (defaults `0.01`/`0.05`): estimates within
+`boundary_tiny_tol` of `[0,1]` are left untouched (expected estimator
+noise), estimates further out but still within `boundary_clip_tol` are
+clipped to the boundary, and anything beyond that is set to `NA`
+rather than clipped.}
+
 \item{expression}{numeric matrix, genes (rows, Ensembl gene ids) x
 samples (columns) -- if `coverage` isn't supplied, this is used
 instead to derive one automatically via
@@ -54,38 +88,54 @@ from `expression`.}
 `build_coverage_from_expression()` when deriving coverage from `expression`.}
 }
 \value{
-a list with:
-  \describe{
-    \item{deconvolved}{named list of matrices, one per cell type, each
-      sites x samples -- the deconvolved per-cell-type editing estimate.
-      THIS is "the deconvolved RNA editing matrix per cell type."}
-    \item{low_coverage}{sites x samples logical matrix, TRUE where the
-      estimate is likely dominated by the reference prior (low coverage).}
-  }
+a list with the same shape as `caRDv0_edit()`'s return
+  (`deconvolved`, `low_coverage`), plus a new `diagnostics` data.frame
+  (one row per site: `n_identifiable_celltypes`, `excluded_celltypes`,
+  `status`) that `caRDv0_edit()` never provided at all.
 }
 \description{
-Reference-based sibling of `caNRD_edit()`. Deconvolves a bulk RNA-editing
-ratio matrix into per-cell-type estimates using a REAL sorted-cell-derived
-reference (mean/variance per cell type per site, from
-`load_reference()`/`estimate_reference_params`-style data). Internally
-this is a single subprocess call to the vendored, unmodified, already-
-vectorized `core.deconvolve()` (Python) -- the exact same function this
-project's own real GTEx pipeline uses -- not a re-implementation. See
-CARD_CANRD_EDIT_MATH_REFERENCE.md sections 3-4 for the full math.
+A methodology-level fix for the same real failure mode diagnosed in
+`caNRD_edit()`, confirmed to also be present in this package's own
+bundled real reference: when `reference$theta` comes from an estimation
+process with a floor (e.g. `estimate_theta_nnls()`'s own `floor`
+argument), "the estimator could not tell this cell type's expression
+apart from zero" and "a precisely measured, genuinely tiny contribution"
+get silently encoded as the exact same number, which `caRDv0_edit()`
+then uses as if it were a real, precise weight. Checked directly:
+`reference_theta.csv` (the bundled real GSE60424-derived reference used
+by `load_reference()`) has 4.5% of its entries sitting exactly at the
+`0.001` estimation floor, and its 99th-percentile per-site max/min theta
+ratio reaches ~24,700x -- the same mechanism, present in real shipped
+data, not a hypothetical concern.
 }
-\examples{
-cohort <- simulate_reference_and_cohort(
-  n_sites = 5, n_celltypes = 3, n_reference_samples = 12, n_deconvolve_samples = 20, seed = 1
-)
-reference <- list(mu = cohort$reference_estimated$mu,
-                   sigma2 = cohort$reference_estimated$sigma2,
-                   theta = cohort$reference_true$theta)
-out <- caRD_edit(cohort$bulk_editing, cohort$coverage, cohort$proportions, reference)
-out$deconvolved[[1]]  # sites x samples deconvolved editing ratio, first cell type
+\details{
+This is not a numerical bug in `caRDv0_edit()`'s solver, and it is not
+specific to self-estimation (`caRD_edit()` uses a real, externally
+supplied `mu`/`sigma2` reference, not a self-estimated one) -- the
+identifiability problem lives entirely in `theta` and the effective
+mixing weight (`phi = normalize(proportions * theta)`) it produces,
+which both `caRD_edit()` and `caNRD_edit()` share via the same
+underlying `deconvolve_site()`/`core.deconvolve()` formula. Feeding that
+formula physically implausible weights and asking it to separate a cell
+type with no real signal will produce a numerically degenerate estimate
+regardless of how good the reference `mu`/`sigma2` are.
 
-# Alternative: no real `coverage` matrix on hand -- derive one
-# automatically from per-sample gene expression instead (see
-# ?build_coverage_from_expression for a real, non-simulated example):
-# out2 <- caRD_edit(bulk_editing, proportions = proportions, reference = reference,
-#                    expression = my_gene_expression, genome = "hg38")
+This function's fix runs before the regression, identically to
+`caNRD_edit()`: for every site, any cell type whose theta is at (or
+within `floor_tol` of) the floor, OR whose mean effective mixing weight
+(`phi`) across samples is below `min_mean_phi`, is treated as "not
+identifiable from this bulk data" and dropped from that site's design
+entirely (never fed in as a tiny-but-nonzero weight); the remaining
+cell types' proportions are renormalized to sum to one, and
+`caRDv0_edit()` is called on this reduced system instead. Sites where
+fewer than `min_identifiable_celltypes` cell types survive are reported
+as `NA` rather than as a numerically unstable guess. Unlike
+`caNRD_edit()`, there is no separate `max_condition_number` gate here --
+confirmed on real data that gate rarely ever fires once the floor and
+phi gates are applied, so it isn't worth the added complexity for the
+reference-based case.
+
+`caRDv0_edit()` (the original, ungated estimator) remains fully
+available and unchanged for anyone who specifically wants that behavior
+(e.g. to reproduce old results).
 }

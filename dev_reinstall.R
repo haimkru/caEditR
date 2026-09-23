@@ -67,18 +67,20 @@ if (!dir.exists(target_lib)) dir.create(target_lib, recursive = TRUE)
 .libPaths(c(target_lib, .libPaths()))
 
 try(remove.packages("caEditR", lib = target_lib), silent = TRUE)
-# Pre-install caEditR's own Imports (jsonlite) from a real CRAN mirror
-# FIRST, before installing caEditR itself -- a real failure, seen directly
-# on a fresh macOS R install with no packages yet ("dependency 'jsonlite'
-# is not available"). Passing a real `repos=` straight to the caEditR
-# install call itself does NOT fix this -- confirmed directly that once
-# `repos` is non-NULL, install.packages() treats `pkgs` as a package NAME
-# to look up in that repo instead of a real local directory ("package
-# '<path>' is not available for this version of R"). So `repos = NULL` is
-# required for the local caEditR install; the fix is ensuring its
-# dependencies are already satisfied before that call runs.
-if (!requireNamespace("jsonlite", quietly = TRUE)) {
-  install.packages("jsonlite", repos = "https://cloud.r-project.org")
+# Pre-install caEditR's own Imports (jsonlite, nnls) from a real CRAN
+# mirror FIRST, before installing caEditR itself -- a real failure, seen
+# directly on a fresh macOS R install with no packages yet ("dependency
+# 'jsonlite' is not available"). Passing a real `repos=` straight to the
+# caEditR install call itself does NOT fix this -- confirmed directly that
+# once `repos` is non-NULL, install.packages() treats `pkgs` as a package
+# NAME to look up in that repo instead of a real local directory
+# ("package '<path>' is not available for this version of R"). So
+# `repos = NULL` is required for the local caEditR install; the fix is
+# ensuring its dependencies are already satisfied before that call runs.
+for (dep in c("jsonlite", "nnls")) {
+  if (!requireNamespace(dep, quietly = TRUE)) {
+    install.packages(dep, repos = "https://cloud.r-project.org")
+  }
 }
 install.packages(pkg_dir, repos = NULL, type = "source", lib = target_lib)
 
@@ -102,19 +104,17 @@ if (!file.exists(marker)) {
   ), target_lib, loaded_from, basename(marker), target_lib), call. = FALSE)
 }
 
-message("caEditR reinstalled from source and loaded fresh: if issues arise, please try to troubleshoot locally, if still stuck, contact hkrupkin@stanford.edu/haim.krupkin@gmail.com", pkg_dir,
-        " (library: ", target_lib, ", verified up to date)")
+message("caEditR reinstalled from source and loaded fresh: ", pkg_dir,
+        " (library: ", target_lib, ", verified up to date). If issues arise, ",
+        "please try to troubleshoot locally, if still stuck, contact ",
+        "hkrupkin@stanford.edu/haim.krupkin@gmail.com")
 
-# Install TCA alongside caEditR itself, right here (AFTER install+load has
-# fully finished), rather than waiting for the first TCA_Like() call deep
-# in a script. Deliberately NOT done via .onAttach()/.onLoad() inside the
-# package itself: R's own install.packages()/R CMD INSTALL machinery calls
-# library() internally, MORE THAN ONCE, purely to verify the package can be
-# loaded ("testing if installed package can be loaded from temporary/final
-# location") -- an .onAttach() hook fires during THOSE internal test-loads
-# too, which was verified directly to cause a real failure (a staged-install
-# path conflict, since the network install landed mid-install-process,
-# inside caEditR's own staging directory). Doing it here instead -- after
-# `library(caEditR)` above has already fully completed -- avoids that
-# entirely while still achieving "install alongside caEditR" for real use.
-caEditR:::.ensure_installed("TCA", function() utils::install.packages("TCA"))
+# TCA_Like() wraps the real CRAN 'TCA' package (a Suggests, not a hard
+# dependency). caEditR no longer auto-installs optional dependencies (per
+# Bioconductor policy -- see .ensure_installed()'s docstring in zzz.R), so
+# just check for it here and tell you if it's missing, rather than either
+# silently skipping it or hard-failing this whole reinstall script.
+if (!requireNamespace("TCA", quietly = TRUE)) {
+  message("Note: the 'TCA' package is not installed -- TCA_Like() will ",
+          "not work until you run install.packages('TCA').")
+}

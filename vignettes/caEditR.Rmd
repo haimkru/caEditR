@@ -1,7 +1,7 @@
 ---
 title: "caEditR: cell-type-resolved RNA-editing deconvolution Example Script"
 author: "Haim Krupkin+Claude"
-date: "`09.13.2026"
+date: "2026-09-13"
 output:
   rmarkdown::html_document:
     toc: true
@@ -179,12 +179,14 @@ out_tca <- TCA_Like(bulk_nz, cohort$proportions)
 
 Because this is "idealized" simulated data, we know the ground actual true per-cell-type per editing site value for every one of the 900 deconvolved simulated samples. On this simulated data, lets compare all three methods' accuracy:
 
+**Note on `NA`s:** `caRD_edit()`/`caNRD_edit()` deliberately return `NA` for a (site, cell type) pair when that cell type's expression signal at that site is too close to caEditR's own detection floor to identify at all (see `?caRD_edit`) -- reporting nothing is safer than a numerically unstable guess. `cor(..., use = "complete.obs")` below scores only the cell/sample pairs that were actually estimated by both methods being compared.
+
 ```{r score}
 celltypes <- names(cohort$ground_truth)
 r2 <- data.frame(
   celltype = celltypes,
-  caRD_edit = sapply(celltypes, function(ct) cor(as.vector(out_card$deconvolved[[ct]]), as.vector(cohort$ground_truth[[ct]]))^2),
-  caNRD_edit = sapply(celltypes, function(ct) cor(as.vector(out_canrd$deconvolved[[ct]]), as.vector(cohort$ground_truth[[ct]]))^2),
+  caRD_edit = sapply(celltypes, function(ct) cor(as.vector(out_card$deconvolved[[ct]]), as.vector(cohort$ground_truth[[ct]]), use = "complete.obs")^2),
+  caNRD_edit = sapply(celltypes, function(ct) cor(as.vector(out_canrd$deconvolved[[ct]]), as.vector(cohort$ground_truth[[ct]]), use = "complete.obs")^2),
   TCA_Like = sapply(celltypes, function(ct) {
     gt <- cohort$ground_truth[[ct]][rownames(bulk_nz), ]
     cor(as.vector(out_tca$deconvolved[[ct]]), as.vector(gt))^2
@@ -213,6 +215,8 @@ if (requireNamespace("ggplot2", quietly = TRUE)) {
 
 The R^2 bars above summarize accuracy per cell type; the scatter plots show us per site what is happening. If you look, you will see TCA's inherent misstake. which is, if a cell type that has high expression, it will overestimate its RNA editing levels, because it will say "oh we have all this excess RNA editing" because it doesn't account for a specific cell types expression, thus over estimating its RNA editing. A similar thing could happen the opposite way, where it will underestimates a cell type with low expression.
 
+(`caRD_edit()`/`caNRD_edit()`'s panels below will show noticeably fewer points than `TCA_Like`'s -- and a "Removed N rows containing missing values" warning -- because of the same `NA`-for-unidentifiable-signal behavior noted above; `TCA_Like` has no equivalent identifiability gating, so it always plots a point for every cell/sample.)
+
 ```{r scatter-data}
 make_long <- function(out, gt, celltypes, sample_subset = NULL) {
   rows <- lapply(celltypes, function(ct) {
@@ -235,7 +239,7 @@ scatter_df <- rbind(
 )
 ```
 
-```{r plot-scatter, fig.width = 9, fig.height = 3.2, fig.alt = "Scatter plots of true simulated per-cell-type editing ratio (x-axis) against each method's deconvolved estimate (y-axis), one panel per method (caRD_edit, caNRD_edit, TCA_Like), points colored by cell type, with a dashed y=x reference line."}
+```{r plot-scatter, fig.width = 9, fig.height = 3.2}
 if (requireNamespace("ggplot2", quietly = TRUE)) {
   ggplot2::ggplot(scatter_df, ggplot2::aes(x = true, y = estimate, color = celltype)) +
     ggplot2::geom_point(alpha = 0.15, size = 0.6) +
@@ -262,6 +266,7 @@ print("done creating the plots :) ")
 **GSE64655 Ottoboni et al** has 8 real bulk PBMC samples
 
 ```{r gse64655-load}
+print("loading real data")
 extdata <- system.file("extdata", package = "caEditR")
 read_matrix <- function(f) as.matrix(read.csv(file.path(extdata, f), row.names = 1, check.names = FALSE))
 
@@ -275,6 +280,7 @@ real_reference <- list(
   theta = read_matrix("gse64655_reference_theta.csv")
 )
 dim(real_bulk)
+print("done loading real data")
 ```
 
 ## Getting proportions the honest way, on this real data
@@ -283,9 +289,12 @@ Same idea as papers before, given real per-sample gene expression and a real,
 independent signature matrix (Monaco et al. 2019, `blood_signature_matrix.csv`, estimate proportions via NNLS.
 
 ```{r signature-matrix-proportions}
+print("loading expression signature matrix")
 sig <- as.matrix(read.csv(file.path(extdata, "blood_signature_matrix.csv"), row.names = 1))
 sig_proportions <- estimate_proportions_signature_matrix(real_gene_counts, sig)
 sig_proportions
+print("Done loading expression signature matrix")
+
 ```
 
 ## The standardized site id format
@@ -303,13 +312,45 @@ format_site_id("1", 12831014)               # strand unspecified -> no trailing 
 Exactly the same functions as before, just pointed at GSE64655 - genome` build parameter is required **GRCh38/hg38**.
 By default map sites to genes uses Ensembl release 110
 
-```{r gse64655-map-genes}
-site_to_gene <- map_sites_to_genes(rownames(real_bulk), genome = "hg38")
-cat(sprintf("%d/%d real sites mapped to a real gene on hg38\n",
-            sum(!is.na(site_to_gene$ensembl_gene_id)), nrow(site_to_gene)))
+This section (and "Passing `expression` directly instead of a separate
+coverage step" below) needs the real Bioconductor UCSC genome-annotation
+packages (`GenomicFeatures`, `TxDb.Hsapiens.UCSC.hg38.knownGene`,
+`org.Hs.eg.db`, `AnnotationDbi`). These are listed in caEditR's own
+`Suggests`, not `Imports` -- a plain `BiocManager::install("caEditR")`
+does NOT install them, so this vignette checks for them explicitly and
+skips gracefully (rather than hard-failing) if they are not present. If
+this chunk is skipped for you, install them with:
+`BiocManager::install(c("GenomicFeatures", "TxDb.Hsapiens.UCSC.hg38.knownGene", "org.Hs.eg.db", "AnnotationDbi"))`.
 
-coverage_from_expr <- build_coverage_from_expression(rownames(real_bulk), real_gene_counts, genome = "hg38")
-head(coverage_from_expr, 3)
+```{r check-genome-annotation}
+has_genome_annotation <- requireNamespace("GenomicFeatures", quietly = TRUE) &&
+  requireNamespace("TxDb.Hsapiens.UCSC.hg38.knownGene", quietly = TRUE) &&
+  requireNamespace("org.Hs.eg.db", quietly = TRUE) &&
+  requireNamespace("AnnotationDbi", quietly = TRUE)
+if (!has_genome_annotation) {
+  message("Skipping gene-mapping/expression-derived-coverage sections: ",
+          "one or more of GenomicFeatures/TxDb.Hsapiens.UCSC.hg38.knownGene/",
+          "org.Hs.eg.db/AnnotationDbi is not installed. The rest of the ",
+          "vignette does not depend on this and will still run using the ",
+          "real, directly-measured coverage already loaded above.")
+}
+```
+
+```{r gse64655-map-genes}
+# The if() here (not just this chunk's `eval=` option) is deliberate: it
+# makes the skip work identically whether this .Rmd is knitted OR run
+# interactively line-by-line/chunk-by-chunk in RStudio -- `eval=` chunk
+# options are a knitr-render-time-only mechanism and are silently ignored
+# when you just run the code directly, which is exactly how this was
+# caught not actually protecting anyone running it that way.
+if (has_genome_annotation) {
+  site_to_gene <- map_sites_to_genes(rownames(real_bulk), genome = "hg38")
+  cat(sprintf("%d/%d real sites mapped to a real gene on hg38\n",
+              sum(!is.na(site_to_gene$ensembl_gene_id)), nrow(site_to_gene)))
+
+  coverage_from_expr <- build_coverage_from_expression(rownames(real_bulk), real_gene_counts, genome = "hg38")
+  head(coverage_from_expr, 3)
+}
 ```
 
 ## Deconvolving real data, in the 3 ways
@@ -328,8 +369,12 @@ out_tca <- TCA_Like(bulk_nz, real_proportions)
 
 # The honest part: with only 8 real samples against 6 cell types (need >=18
 # to be "reliable"), caNRD_edit's OWN diagnostics correctly flag this cohort
-# as marginal -- EVERY site, not just some:
-mean(out_canrd$diagnostics$marginal_n)
+# as marginal for essentially every site that gets an estimate at all
+# (na.rm=TRUE because a couple of sites are excluded outright now --
+# floor-clamped/negligible-signal cell types -- rather than flagged
+# marginal; see `status`/`excluded_celltypes` for those):
+mean(out_canrd$diagnostics$marginal_n, na.rm = TRUE)
+sum(out_canrd$diagnostics$status == "insufficient_identifiable_celltypes")
 ```
 
 
@@ -345,7 +390,7 @@ real_r2 <- do.call(rbind, lapply(celltypes, function(ct) {
   n <- sum(genuine)
   r2 <- function(out) {
     est <- out$deconvolved[[ct]][rownames(genuine), colnames(genuine)]
-    if (n >= 3) cor(est[genuine], gt[rownames(genuine), colnames(genuine)][genuine])^2 else NA_real_
+    if (n >= 3) cor(est[genuine], gt[rownames(genuine), colnames(genuine)][genuine], use = "complete.obs")^2 else NA_real_
   }
   data.frame(celltype = ct, n_genuine = n,
              caRD_edit = r2(out_card), caNRD_edit = r2(out_canrd), TCA_Like = r2(out_tca))
@@ -353,6 +398,61 @@ real_r2 <- do.call(rbind, lapply(celltypes, function(ct) {
 print(real_r2, row.names = FALSE)
 ```
 
+## How many (site, sample) pairs did we actually get an estimate for?
+
+The R^2 table above only scores what got *estimated*; it says nothing about
+*how much* of the real data that covers. Cell types differ hugely here --
+worth checking directly rather than assuming "we ran it on 107 sites" means
+every cell type got 107 sites' worth of answers.
+
+```{r gse64655-coverage}
+n_total <- nrow(real_bulk) * ncol(real_bulk)  # sites x samples
+coverage_summary <- do.call(rbind, lapply(colnames(real_proportions), function(ct) {
+  data.frame(
+    celltype = ct,
+    pct_estimated_caRD = 100 * sum(!is.na(out_card$deconvolved[[ct]])) / n_total,
+    pct_estimated_caNRD = 100 * sum(!is.na(out_canrd$deconvolved[[ct]])) / n_total,
+    mean_real_proportion_pct = 100 * mean(real_proportions[, ct])
+  )
+}))
+print(coverage_summary, row.names = FALSE, digits = 2)
+
+cat("\nSite-level status (out of", nrow(real_bulk), "real sites):\n")
+print(table(out_card$diagnostics$status))
+```
+
+**Neutrophils get 0% coverage and only 2 "genuine" ground-truth pairs --
+confirmed directly, not a bug**: GSE64655 is a *PBMC* (peripheral blood
+**mononuclear** cell) dataset. PBMC isolation (density-gradient
+centrifugation) specifically removes granulocytes, including neutrophils,
+by design -- that is the entire point of a PBMC prep. Real neutrophil
+proportion across all 8 samples here averages `r round(100 * mean(real_proportions[, "Neutrophils"]), 2)`%.
+With essentially no real neutrophil signal in these particular samples,
+there is nothing for either method to identify, and nothing reliable to
+build "genuine" validation ground truth from -- this is a fact about the
+input data, not about `caRD_edit()`/`caNRD_edit()`'s gating. B cells and
+DCs are also low-coverage here for the more familiar reason: they are
+genuinely minor populations in blood, so most sites' host genes simply
+are not expressed distinctly enough in them to be identifiable from bulk
+(see `?caRD_edit`'s `min_mean_phi` for the exact mechanism).
+
+```{r gse64655-plot-coverage, fig.alt = "Scatter plot of the percent of (site, sample) pairs caRD_edit() actually estimated for each of the 6 real GSE64655 cell types (y-axis) against that cell type's real mean proportion in the cohort (x-axis), one labeled point per cell type, showing coverage tracks real abundance."}
+if (requireNamespace("ggplot2", quietly = TRUE)) {
+  ggplot2::ggplot(coverage_summary, ggplot2::aes(x = mean_real_proportion_pct, y = pct_estimated_caRD, label = celltype)) +
+    ggplot2::geom_point(size = 2.5, color = "steelblue") +
+    ggplot2::geom_text(vjust = -0.8, size = 3.5) +
+    ggplot2::labs(x = "Real mean cell-type proportion (%)", y = "% of (site, sample) pairs estimated (caRD_edit)") +
+    ggplot2::coord_cartesian(xlim = c(0, max(coverage_summary$mean_real_proportion_pct) * 1.15),
+                              ylim = c(0, 100)) +
+    ggplot2::theme_bw()
+} else {
+  plot(coverage_summary$mean_real_proportion_pct, coverage_summary$pct_estimated_caRD,
+       xlab = "Real mean cell-type proportion (%)", ylab = "% of (site, sample) pairs estimated (caRD_edit)",
+       pch = 16, col = "steelblue", ylim = c(0, 100))
+  text(coverage_summary$mean_real_proportion_pct, coverage_summary$pct_estimated_caRD,
+       labels = coverage_summary$celltype, pos = 3)
+}
+```
 
 ```{r gse64655-plot-r2, fig.alt = "Bar plot of Pearson R-squared (deconvolved estimate vs. real, directly-measured ground truth) for each of the 6 real GSE64655 cell types, grouped by method (caRD_edit, caNRD_edit, TCA_Like)."}
 real_r2_long <- reshape(real_r2, direction = "long", varying = list(3:5),
@@ -374,13 +474,22 @@ if (requireNamespace("ggplot2", quietly = TRUE)) {
 
 ## Passing `expression` directly instead of a separate coverage step
 
+This also needs the same optional genome-annotation packages checked
+above (`expression`-derived coverage internally calls
+`build_coverage_from_expression()`, which needs them to map sites to
+genes) -- skipped gracefully here too if they are not installed.
+
 ```{r gse64655-integrated}
-#if wanted, u can also do this format instead:
-out_card_from_expr <- caRD_edit(
-  real_bulk, proportions = real_proportions, reference = real_reference,
-  expression = real_gene_counts, genome = "hg38"
-)
-head(out_card_from_expr$deconvolved$Neutrophils, 3)
+# Same reasoning as the previous chunk: a real if(), not just eval=, so
+# this is actually skipped when run interactively too.
+if (has_genome_annotation) {
+  #if wanted, u can also do this format instead:
+  out_card_from_expr <- caRD_edit(
+    real_bulk, proportions = real_proportions, reference = real_reference,
+    expression = real_gene_counts, genome = "hg38"
+  )
+  head(out_card_from_expr$deconvolved$Neutrophils, 3)
+}
 ```
 
 `coverage` (a real matrix) and `expression` are mutually exclusive ways to supply the same argument. if you have real per-site coverage, always prefer it (`coverage` silently wins if both are given, with a `message()` saying so); `expression`derived coverage is a proxy for when you don't have coverage.

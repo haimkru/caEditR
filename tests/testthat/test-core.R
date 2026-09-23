@@ -30,7 +30,11 @@ test_that("load_reference() loads the bundled real reference with the expected s
   expect_true(all(ref$sigma2 > 0))
 })
 
-test_that("caRD_edit() runs end-to-end on the bundled real example data", {
+test_that("caRDv0_edit() runs end-to-end on the bundled real example data with no NA", {
+  # caRDv0_edit() (the original, ungated estimator) has no identifiability
+  # gating at all, so every cell -- however unstable the fit -- gets some
+  # numeric estimate. This is the guarantee the old caRD_edit() used to
+  # provide; it's preserved here under the new name.
   extdata <- system.file("extdata", package = "caEditR")
   read_matrix <- function(f) as.matrix(read.csv(file.path(extdata, f), row.names = 1, check.names = FALSE))
   bulk <- read_matrix("example_bulk_editing_ratios.csv")
@@ -38,7 +42,7 @@ test_that("caRD_edit() runs end-to-end on the bundled real example data", {
   proportions <- read_matrix("example_bulk_proportions.csv")
   reference <- load_reference()
 
-  out <- caRD_edit(bulk, coverage, proportions, reference)
+  out <- caRDv0_edit(bulk, coverage, proportions, reference)
   expect_setequal(names(out$deconvolved), colnames(proportions))
   for (ct in names(out$deconvolved)) {
     expect_equal(dim(out$deconvolved[[ct]]), dim(bulk))
@@ -47,11 +51,40 @@ test_that("caRD_edit() runs end-to-end on the bundled real example data", {
   expect_equal(dim(out$low_coverage), dim(bulk))
 })
 
-test_that("caNRD_edit() self-consistently reproduces caRD_edit()'s math when the SAME mu/sigma2 is fed straight into deconvolve_site", {
+test_that("caRD_edit() runs end-to-end on the bundled real example data, gating out floor/negligible-phi cell types", {
+  # Confirmed directly: the bundled real reference_theta.csv has 4.5% of
+  # its entries exactly at the 0.001 estimation floor, so caRD_edit()'s
+  # gating is expected to (and does) introduce real NAs here, unlike
+  # caRDv0_edit() above -- that's the intended fix working, not a
+  # regression. This test checks shape/structure and the new diagnostics
+  # output instead of asserting "no NA".
+  extdata <- system.file("extdata", package = "caEditR")
+  read_matrix <- function(f) as.matrix(read.csv(file.path(extdata, f), row.names = 1, check.names = FALSE))
+  bulk <- read_matrix("example_bulk_editing_ratios.csv")
+  coverage <- read_matrix("example_bulk_coverage.csv")
+  proportions <- read_matrix("example_bulk_proportions.csv")
+  reference <- load_reference()
+
+  out <- suppressMessages(caRD_edit(bulk, coverage, proportions, reference))
+  expect_setequal(names(out$deconvolved), colnames(proportions))
+  for (ct in names(out$deconvolved)) {
+    expect_equal(dim(out$deconvolved[[ct]]), dim(bulk))
+  }
+  expect_equal(dim(out$low_coverage), dim(bulk))
+  expect_true(anyNA(unlist(out$deconvolved)))  # gating is expected to exclude something on this real data
+  expect_equal(nrow(out$diagnostics), nrow(bulk))
+  expect_true(all(c("status", "n_identifiable_celltypes", "excluded_celltypes") %in% names(out$diagnostics)))
+})
+
+test_that("caNRDv0_edit() self-consistently reproduces caRD_edit()'s math when the SAME mu/sigma2 is fed straight into deconvolve_site", {
   # Not a comparison against caRD_edit()'s output (they use different
-  # references, by design) -- a narrower, more direct check: caNRD_edit()'s
+  # references, by design) -- a narrower, more direct check: caNRDv0_edit()'s
   # per-site loop should reproduce exactly what calling deconvolve_site()
-  # by hand with its own returned mu_hat/sigma2_hat would give.
+  # by hand with its own returned mu_hat/sigma2_hat would give. Uses
+  # caNRDv0_edit() (the original, ungated estimator) deliberately, not the
+  # default caNRD_edit() -- this test is about the raw per-site math, and
+  # a deliberately-marginal 3-celltype/N=4 scenario would likely be gated
+  # out entirely (or reshaped) by caNRD_edit()'s identifiability gates.
   extdata <- system.file("extdata", package = "caEditR")
   read_matrix <- function(f) as.matrix(read.csv(file.path(extdata, f), row.names = 1, check.names = FALSE))
   bulk <- read_matrix("example_bulk_editing_ratios.csv")[1:3, , drop = FALSE]
@@ -60,7 +93,7 @@ test_that("caNRD_edit() self-consistently reproduces caRD_edit()'s math when the
   proportions <- proportions / rowSums(proportions)
   theta <- load_reference()$theta[1:3, c("Neutrophils", "Monocytes", "CD4")]
 
-  out <- caNRD_edit(bulk, coverage, proportions, theta)
+  out <- caNRDv0_edit(bulk, coverage, proportions, theta)
   expect_setequal(names(out$deconvolved), c("Neutrophils", "Monocytes", "CD4"))
   expect_equal(nrow(out$diagnostics), 3)
   expect_true(all(out$diagnostics$marginal_n))  # N=4 samples, C=3 celltypes -- correctly flagged fragile
@@ -138,7 +171,12 @@ test_that("build_coverage_from_expression() builds correct per-sample coverage f
   expect_equal(nrow(attr(cov, "site_to_gene")), 8)
 })
 
-test_that("caRD_edit() supports both a direct `coverage` matrix and a derived-from-`expression` one", {
+test_that("caRDv0_edit() supports both a direct `coverage` matrix and a derived-from-`expression` one", {
+  # Uses caRDv0_edit() deliberately -- this test is about coverage
+  # resolution (.resolve_coverage(), shared unchanged between caRD_edit()
+  # and caRDv0_edit()), not about the newer identifiability gating, so it
+  # keeps the "no NA on this example data" guarantee rather than
+  # conflating two separate concerns in one test.
   skip_if_not_installed("GenomicFeatures")
   skip_if_not_installed("TxDb.Hsapiens.UCSC.hg38.knownGene")
   skip_if_not_installed("org.Hs.eg.db")
@@ -150,17 +188,17 @@ test_that("caRD_edit() supports both a direct `coverage` matrix and a derived-fr
   gene_counts <- read_matrix("example_bulk_gene_counts.csv")
   reference <- load_reference()
 
-  expect_error(caRD_edit(bulk, proportions = proportions, reference = reference),
+  expect_error(caRDv0_edit(bulk, proportions = proportions, reference = reference),
                "Must supply either")
 
-  out_direct <- caRD_edit(bulk, coverage, proportions, reference)
-  out_expr <- suppressMessages(caRD_edit(bulk, proportions = proportions, reference = reference,
-                                          expression = gene_counts, genome = "hg38"))
+  out_direct <- caRDv0_edit(bulk, coverage, proportions, reference)
+  out_expr <- suppressMessages(caRDv0_edit(bulk, proportions = proportions, reference = reference,
+                                            expression = gene_counts, genome = "hg38"))
   expect_equal(dim(out_expr$deconvolved[[1]]), dim(out_direct$deconvolved[[1]]))
   expect_false(anyNA(out_expr$deconvolved[[1]]))
 
   expect_message(
-    out_both <- caRD_edit(bulk, coverage, proportions, reference, expression = gene_counts, genome = "hg38"),
+    out_both <- caRDv0_edit(bulk, coverage, proportions, reference, expression = gene_counts, genome = "hg38"),
     "using .coverage. directly"
   )
   expect_identical(out_both$deconvolved, out_direct$deconvolved)
@@ -190,7 +228,11 @@ test_that("estimate_proportions_signature_matrix() errors informatively on insuf
   expect_error(estimate_proportions_signature_matrix(bulk, sig), "overlapping gene")
 })
 
-test_that("caNRD_edit() on real GSE64655 data exactly reproduces this project's own validated figure", {
+test_that("caNRDv0_edit() on real GSE64655 data exactly reproduces this project's own validated figure", {
+  # Uses caNRDv0_edit() deliberately -- the "official" reference CSVs below
+  # were generated with the original, ungated estimator; caNRD_edit()'s
+  # identifiability/boundary gates would legitimately change some values
+  # relative to those files without indicating anything is broken.
   extdata <- system.file("extdata", package = "caEditR")
   read_matrix <- function(f) as.matrix(read.csv(file.path(extdata, f), row.names = 1, check.names = FALSE))
   real_bulk <- read_matrix("gse64655_bulk_editing_ratios.csv")
@@ -198,8 +240,8 @@ test_that("caNRD_edit() on real GSE64655 data exactly reproduces this project's 
   real_proportions <- read_matrix("gse64655_proportions.csv")
   real_theta <- read_matrix("gse64655_reference_theta.csv")
 
-  out_canrd <- caNRD_edit(real_bulk, real_coverage, real_proportions, real_theta,
-                           iterative = TRUE, ridge_frac = 0.1)
+  out_canrd <- caNRDv0_edit(real_bulk, real_coverage, real_proportions, real_theta,
+                             iterative = TRUE, ridge_frac = 0.1)
 
   for (ct in colnames(real_proportions)) {
     official <- read_matrix(paste0("gse64655_official_canrd_estimate_", ct, ".csv"))
