@@ -1,3 +1,38 @@
+# caEditR 0.99.2
+
+## New: `celltype_edqtl()` -- cell-type-resolved edQTL test on bulk editing
+
+Tests genotype effects per cell type directly in the bulk mixture model,
+`E[bulk_i] = sum_c phi_ic (mu_c + beta_c g_i) (+ covariates)`, fitted by
+iteratively reweighted least squares. Weights combine binomial read-sampling
+noise computed from the model-predicted bulk level (so zero-edited-read samples
+are not overweighted) with a between-donor variance estimated from the
+residuals (so very deep samples are not overweighted). Standard errors are the
+larger of model-based and HC3 sandwich SEs. Same identifiability gates as
+`caNRD_edit()`; `theta_floor` must be given explicitly. Variants with fewer
+than `min_minor_allele_samples` (default 10) minor-allele carriers are skipped;
+degenerate cases are reported by `status` rather than as NaN p-values
+(`no_variation_in_bulk`, `monomorphic_variant`, `aliased`, `too_few_samples`,
+...). Invalid inputs (ratios outside [0,1], negative proportions, dosages outside
+[0,2], non-finite theta) raise clear errors.
+
+Motivation: testing per-sample deconvolved estimates spreads a one-cell-type
+genotype effect into the other cell types (each sample has one bulk value)
+and shrinks effect sizes. In a GTEx-based simulation (670 donors, real
+proportions and theta) per-sample testing gave 56-63% false edQTL calls at
+p < 1e-3 in cell types without an effect; `celltype_edqtl()` gave 0%, recovered
+effect sizes (median 0.85-1.04 of truth), with roughly 80-90% of the power.
+
+Adversarial validation (70 cases, three rounds): calibrated under low (0.1%)
+and high (99%) editing, rare variants, 5-5000x coverage, missing data, noisy
+proportions, composition QTLs, variance QTLs, heavy-tailed noise, HWE
+deviation, N = 60-2000, and a real-data null (real GTEx bulk, proportions and
+theta with permuted genotypes: 5.9% at p < 0.05, 0 at p < 1e-3). Known
+limitations: theta errors of ~4x cause some cross-cell-type misattribution;
+effects in cell types absent from the model are partly attributed to modeled
+ones; confounders must be supplied as covariates.
+Existing functions are unchanged.
+
 # caEditR 0.99.1
 
 ## Behavior change: `caRD_edit()` and `caNRD_edit()` now gate on identifiability, not just fit
