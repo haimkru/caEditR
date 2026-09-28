@@ -213,7 +213,7 @@ caNRD_editQTL <- function(bulk_editing, genotypes, proportions, theta, theta_flo
   if (length(s2_init) == K) s2_init <- c(s2_init, sigma2_floor)
   ls2 <- log(pmax(s2_init, sigma2_floor))
   lo <- rep(log(sigma2_floor), K + 1); hi <- rep(log(1), K + 1)
-  b_prev <- NULL; converged <- FALSE; it <- 0L
+  b_prev <- NULL; ll_prev <- -Inf; converged <- FALSE; it <- 0L
   for (it in seq_len(if (update_tau2) max_outer else 1L)) {
     opt <- tryCatch(stats::optim(pmin(pmax(ls2, lo), hi), nll, t2 = tau2, method = "L-BFGS-B", lower = lo, upper = hi),
                     error = function(e) NULL)
@@ -224,8 +224,10 @@ caNRD_editQTL <- function(bulk_editing, genotypes, proportions, theta, theta_flo
     if (!update_tau2) { converged <- opt$convergence == 0; break }
     m <- as.numeric(X %*% f$b)
     tau2 <- pmax(pmin(pmax(m, eps), 1 - eps) * (1 - pmin(pmax(m, eps), 1 - eps)) / cv, 1e-10)
-    if (!is.null(b_prev) && max(abs(f$b - b_prev)) < tol) { converged <- TRUE; break }
-    b_prev <- f$b
+    ll <- -opt$value
+    # converged when the mean stops moving or, as in TCA, the log-likelihood gain is negligible relative to its size
+    if (!is.null(b_prev) && (max(abs(f$b - b_prev)) < tol || abs(ll - ll_prev) < 1e-8 * max(1, abs(ll)))) { converged <- TRUE; break }
+    b_prev <- f$b; ll_prev <- ll
   }
   V <- as.numeric(P2 %*% exp(ls2[1:K])) + exp(ls2[K + 1]) + tau2
   f <- gls(V)
