@@ -1,3 +1,10 @@
+# caEditR 0.99.3
+
+* New `caNRD_editQTL()`: joint, likelihood-based cell-type edQTL test under caNRD's latent-editing model, following TCA's
+  joint model (genotype as a cell-type-specific covariate) adapted to RNA editing: variance
+  `sum_h phi^2 sigma2_h + binomial tau2_i (model-based) + scalar tau2_0`, ML nuisance variances re-estimated under every
+  null, per-cell-type and site-level likelihood-ratio tests, Wald SEs/CIs, identifiability (VIF/aliased) flags.
+
 # caEditR 0.99.2
 
 ## New: `celltype_edqtl()` -- cell-type-resolved edQTL test on bulk editing
