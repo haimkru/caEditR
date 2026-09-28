@@ -42,3 +42,24 @@ test_that("caNRD_editQTL gating and input checks", {
   p2 <- d$p; p2[, "B"] <- p2[, "A"]; p2 <- p2 / rowSums(p2)
   expect_true("aliased" %in% caNRD_editQTL(d$bulk, d$g, p2, d$theta, theta_floor = 0, coverage = d$cov)$status)
 })
+
+test_that("regressions from the adversarial review (09.28.2026)", {
+  d <- sim_eq(seed = 5)
+  a <- caNRD_editQTL(d$bulk, d$g, d$p, d$theta, theta_floor = 0, coverage = d$cov)
+  # coverage = NULL: TCA's variance model, SEs comparable to the coverage-aware fit (previously ~8x too large)
+  b <- caNRD_editQTL(d$bulk, d$g, d$p, d$theta, theta_floor = 0)
+  expect_lt(max(abs(log(b$se / a$se))), log(1.5))
+  # unnamed init in cell-type order works; named init is equivalent
+  u <- caNRD_editQTL(d$bulk, d$g, d$p, d$theta, theta_floor = 0, coverage = d$cov, init = list(sigma2 = c(4e-4, 4e-4, 4e-4)))
+  expect_true(all(u$status == "tested"))
+  expect_equal(u$beta, a$beta, tolerance = 1e-3)
+  expect_error(caNRD_editQTL(d$bulk, d$g, d$p, d$theta, theta_floor = 0, init = list(sigma2 = c(1, 1))), "init")
+  # coverage without dimnames: informative error
+  expect_error(caNRD_editQTL(d$bulk, d$g, d$p, d$theta, theta_floor = 0, coverage = unname(d$cov)), "coverage must have")
+  # near-collinear cell types are aliased, not tested with huge betas
+  p3 <- d$p; p3[, "B"] <- 0.999 * p3[, "A"] + 0.001 * p3[, "B"]; p3 <- p3 / rowSums(p3)
+  r3 <- caNRD_editQTL(d$bulk, d$g, p3, d$theta, theta_floor = 0, coverage = d$cov)
+  expect_true(all(r3$status[r3$celltype %in% c("A", "B")] == "aliased"))
+  # LRT statistics are non-negative by construction (nesting guard); p == 1 only if beta is exactly 0
+  expect_true(all(a$p < 1))
+})

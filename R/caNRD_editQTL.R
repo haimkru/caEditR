@@ -17,6 +17,8 @@
 #' \itemize{
 #'   \item \eqn{\tau^2_i = m_i(1-m_i)/coverage_i} uses the MODEL-PREDICTED bulk level \eqn{m_i} (the variance-fixed caNRD
 #'     sampling variance), so samples with zero edited reads are not treated as exact.
+#'     Without `coverage` there is no binomial term (\eqn{\tau^2_i = 0}) and \eqn{\tau^2_0} carries all measurement noise,
+#'     i.e. exactly TCA's variance model; pass coverage whenever it is known.
 #'   \item \eqn{\sigma^2_h} (cell-type biological variances) and \eqn{\tau^2_0} are nuisance parameters estimated by maximum likelihood (started
 #'     from caNRD's non-negative moment estimate), with the mean parameters profiled out by generalized least squares. They
 #'     are RE-ESTIMATED under every null model, never carried over from the alternative.
@@ -49,9 +51,12 @@
 #' estimates near the 0/1 bounds are an approximation.
 #'
 #' @inheritParams celltype_edqtl
+#' @param coverage optional sites x samples matrix of read coverage (with dimnames). Strongly recommended: it gives the
+#'   binomial sampling variance. Without it the model is TCA's (a single extra-noise variance).
 #' @param sigma2_floor lower bound for the cell-type variances (default 1e-8).
 #' @param max_vif variance-inflation factor above which an effect is flagged weakly identifiable (default 10).
-#' @param init optional list with `sigma2` (named by cell type), e.g. from a caNRD fit, used as starting values only.
+#' @param init optional list with `sigma2` (named by cell type, or unnamed in the column order of `proportions`), e.g. from
+#'   a caNRD fit; used as one of several starting values only.
 #' @param max_outer maximum alternations between the mean/variance fit and the model-based \eqn{\tau^2} update.
 #' @return data.frame, one row per (site, variant, cell type): `site_id`, `variant_id`, `celltype`, `status`
 #'   (`"tested"`, or why not: `not_identifiable`, `aliased`, `too_few_samples`, `monomorphic_variant`,
@@ -86,9 +91,24 @@ caNRD_editQTL <- function(bulk_editing, genotypes, proportions, theta, theta_flo
   if (any(bulk_editing < 0 | bulk_editing > 1, na.rm = TRUE)) stop("bulk_editing must be editing ratios in [0, 1]", call. = FALSE)
   if (any(!is.finite(proportions)) || any(proportions < 0)) stop("proportions must be finite and non-negative", call. = FALSE)
   if (any(genotypes < 0 | genotypes > 2, na.rm = TRUE)) stop("genotypes must be dosages in [0, 2]", call. = FALSE)
-  if (!is.null(coverage) && any(coverage < 0, na.rm = TRUE)) stop("coverage must be non-negative", call. = FALSE)
+  if (!is.null(coverage)) {
+    coverage <- as.matrix(coverage)
+    if (is.null(rownames(coverage)) || is.null(colnames(coverage))) stop("coverage must have row (site) and column (sample) names", call. = FALSE)
+    if (any(coverage < 0, na.rm = TRUE)) stop("coverage must be non-negative", call. = FALSE)
+  }
   if (is.null(floor_tol)) floor_tol <- min(1e-9, theta_floor / 1e6)
   samples <- Reduce(intersect, list(colnames(bulk_editing), colnames(genotypes), rownames(proportions)))
+  if (!is.null(coverage)) samples <- intersect(samples, colnames(coverage))
+  if (!is.null(init$sigma2)) {
+    s2i <- init$sigma2
+    if (is.null(names(s2i))) {
+      if (length(s2i) != length(celltypes)) stop("unnamed init$sigma2 must have one value per cell type (in proportions' column order)", call. = FALSE)
+      names(s2i) <- celltypes
+    }
+    if (!all(celltypes %in% names(s2i)) || any(!is.finite(s2i[celltypes])) || any(s2i[celltypes] < 0))
+      stop("init$sigma2 must give a finite non-negative value for every cell type", call. = FALSE)
+    init$sigma2 <- s2i
+  }
   if (!is.null(covariates)) samples <- intersect(samples, rownames(covariates))
   if (length(samples) < min_samples) stop("fewer than min_samples samples shared by bulk_editing, genotypes and proportions", call. = FALSE)
   if (is.null(pairs)) pairs <- expand.grid(site_id = rownames(bulk_editing), variant_id = rownames(genotypes), stringsAsFactors = FALSE)
@@ -99,6 +119,7 @@ caNRD_editQTL <- function(bulk_editing, genotypes, proportions, theta, theta_flo
   for (k in seq_len(nrow(pairs))) {
     sid <- pairs$site_id[k]; vid <- pairs$variant_id[k]
     if (!sid %in% rownames(theta)) stop("site ", sid, " is missing from theta", call. = FALSE)
+    if (!is.null(coverage) && !sid %in% rownames(coverage)) stop("site ", sid, " is missing from coverage", call. = FALSE)
     y <- bulk_editing[sid, samples]; g <- genotypes[vid, samples]
     th <- theta[sid, celltypes]
     if (any(!is.finite(th))) stop("theta has non-finite values for site ", sid, call. = FALSE)
@@ -138,22 +159,32 @@ caNRD_editQTL <- function(bulk_editing, genotypes, proportions, theta, theta_flo
     }
     if (length(ident) && all(res$status[idx0] == "not_identifiable")) {
       yy <- y[ok]; gg <- g[ok]; K <- length(ident)
+      # no coverage: no binomial term (tau2_i = 0), TCA's scalar tau2_0 carries all measurement noise
       cv <- if (!is.null(coverage)) pmax(coverage[sid, samples][ok], 1) else rep(1, sum(ok))
+      tau2_fixed <- if (is.null(coverage)) rep(0, sum(ok)) else NULL
       eps <- if (is.null(coverage)) 1e-3 else 0.5 / cv
       Xmu <- phi; colnames(Xmu) <- paste0("mu_", ident)
       Xb <- phi * gg; colnames(Xb) <- paste0("beta_", ident)
       Xc <- if (!is.null(cov_mat)) cov_mat[ok, , drop = FALSE] else NULL
       s2_init <- if (!is.null(init$sigma2)) pmax(as.numeric(init$sigma2[ident]), sigma2_floor) else NULL
-      full <- .canrd_eqtl_fit(yy, cbind(Xmu, Xb, Xc), phi, cv, eps, tau2 = NULL, s2_init, sigma2_floor, max_outer, tol)
+      full <- .canrd_eqtl_fit(yy, cbind(Xmu, Xb, Xc), phi, cv, eps, tau2 = tau2_fixed, s2_init, sigma2_floor, max_outer, tol)
       if (!is.null(full)) {
         tau2 <- full$tau2                                 # shared sampling-noise term for full vs null fits
         Xall <- cbind(Xmu, Xb, Xc)
         jb <- match(colnames(Xb), colnames(Xall))
         site0 <- .canrd_eqtl_fit(yy, cbind(Xmu, Xc), phi, cv, eps, tau2 = tau2, full$s2_all, sigma2_floor, max_outer, tol)
-        p_ct <- vapply(seq_len(K), function(h) {
-          f0 <- .canrd_eqtl_fit(yy, Xall[, -jb[h], drop = FALSE], phi, cv, eps, tau2 = tau2, full$s2_all, sigma2_floor, max_outer, tol)
-          if (is.null(f0)) NA_real_ else stats::pchisq(max(0, 2 * (full$loglik - f0$loglik)), 1, lower.tail = FALSE)
-        }, numeric(1))
+        nulls <- lapply(seq_len(K), function(h)
+          .canrd_eqtl_fit(yy, Xall[, -jb[h], drop = FALSE], phi, cv, eps, tau2 = tau2, full$s2_all, sigma2_floor, max_outer, tol))
+        # nesting guard: every null model is nested in the full model (same tau2), so the full likelihood can't be lower.
+        # If a null fit found better variances, refit the full model from them.
+        ll0 <- vapply(c(nulls, list(site0)), function(f) if (is.null(f)) -Inf else f$loglik, numeric(1))
+        if (max(ll0) > full$loglik + 1e-8) {
+          st <- c(nulls, list(site0))[[which.max(ll0)]]$s2_all
+          ref <- .canrd_eqtl_fit(yy, Xall, phi, cv, eps, tau2 = tau2, st, sigma2_floor, max_outer, tol)
+          if (!is.null(ref) && ref$loglik > full$loglik) { ref$converged <- full$converged; ref$iterations <- full$iterations; full <- ref }
+        }
+        lrt_p <- function(f0, df) if (is.null(f0)) NA_real_ else stats::pchisq(max(0, 2 * (full$loglik - f0$loglik)), df, lower.tail = FALSE)
+        p_ct <- vapply(nulls, lrt_p, numeric(1), df = 1)
         se <- sqrt(pmax(diag(full$vcov)[jb], 0))
         # variance inflation of each genotype x phi column given all other columns (GLS-weighted)
         Wsq <- sqrt(1 / full$V)
@@ -168,11 +199,11 @@ caNRD_editQTL <- function(bulk_editing, genotypes, proportions, theta, theta_flo
         res$ci_low[idx] <- full$b[jb] - 1.96 * se; res$ci_high[idx] <- full$b[jb] + 1.96 * se
         res$p[idx] <- p_ct
         res$p_wald[idx] <- 2 * stats::pnorm(abs(full$b[jb] / se), lower.tail = FALSE)
-        res$p_site <- if (is.null(site0)) NA_real_ else stats::pchisq(max(0, 2 * (full$loglik - site0$loglik)), K, lower.tail = FALSE)
+        res$p_site <- lrt_p(site0, K)
         res$mu[idx] <- full$b[match(colnames(Xmu), colnames(Xall))]
         res$sigma2[idx] <- full$sigma2; res$tau2_0[idx] <- full$tau2_0; res$mean_phi[idx] <- colMeans(phi)
         res$vif[idx] <- vif; res$weakly_identifiable[idx] <- vif > max_vif
-        aliased <- !is.finite(vif) | vif > 1e8                    # exactly collinear with other columns: not separable
+        aliased <- !is.finite(vif) | vif > 1e6                    # (near-)collinear with other columns: SE inflated > 1000x, not separable
         if (any(aliased)) { res$status[idx[aliased]] <- "aliased"
           res[idx[aliased], c("beta", "se", "ci_low", "ci_high", "p", "p_wald")] <- NA_real_ }
         res$loglik <- full$loglik; res$converged <- full$converged; res$iterations <- full$iterations
@@ -186,53 +217,56 @@ caNRD_editQTL <- function(bulk_editing, genotypes, proportions, theta, theta_flo
 }
 
 # One maximum-likelihood fit of caNRD's marginal model:
-#   y_i ~ N(X_i b, V_i),  V_i = sum_h phi_ih^2 sigma2_h + tau2_i + tau2_0   (TCA's variance model + binomial tau2_i).
-# The variance parameters (log sigma2_1..K, log tau2_0) are optimised jointly; s2_init may carry K or K+1 values.
-# b is profiled out by GLS; sigma2 (log scale) by L-BFGS-B. If tau2 is NULL it is model-based from the fitted mean and
-# updated in an outer loop (variance-fixed caNRD); if given, it is held fixed (used for null fits so likelihoods compare).
+#   y_i ~ N(X_i b, V_i),  V_i = sum_h phi_ih^2 sigma2_h + tau2_0 + tau2_i   (TCA's variance model + binomial tau2_i).
+# b is profiled out by GLS. The variances (sigma2_1..K, tau2_0) are optimised jointly by L-BFGS-B on the LINEAR scale
+# (bounded below by sigma2_floor; parscale = var(y)): on the log scale the gradient vanishes at the floor and components
+# started there never move, leaving local optima. Several starting points are tried and the best likelihood is kept.
+# If tau2 is NULL it is model-based from the fitted mean and updated in an outer loop (variance-fixed caNRD); if given
+# it is held fixed (null fits, so likelihoods compare; all zeros when no coverage is given). s2_init: K or K+1 values.
 .canrd_eqtl_fit <- function(y, X, phi, cv, eps, tau2 = NULL, s2_init = NULL, sigma2_floor = 1e-8, max_outer = 20, tol = 1e-7) {
   n <- length(y); K <- ncol(phi); P2 <- phi^2
   gls <- function(V) {
-    w <- 1 / V
-    fit <- stats::lm.wfit(X, y, w)
+    fit <- stats::lm.wfit(X, y, 1 / V)
     b <- fit$coefficients; b[is.na(b)] <- 0
-    list(b = b, r = y - as.numeric(X %*% b), rank = fit$rank)
+    list(b = b, r = y - as.numeric(X %*% b))
   }
-  nll <- function(ls2, t2) {
-    V <- as.numeric(P2 %*% exp(ls2[1:K])) + exp(ls2[K + 1]) + t2
-    f <- gls(V)
-    0.5 * sum(log(2 * pi * V) + f$r^2 / V)
-  }
+  varf <- function(s2, t2) as.numeric(P2 %*% s2[1:K]) + s2[K + 1] + t2
+  nll <- function(s2, t2) { V <- varf(s2, t2); f <- gls(V); 0.5 * sum(log(2 * pi * V) + f$r^2 / V) }
+  binom_tau2 <- function(m) { mc <- pmin(pmax(m, eps), 1 - eps); pmax(mc * (1 - mc) / cv, 1e-10) }
   update_tau2 <- is.null(tau2)
-  m <- rep(min(max(mean(y), 1e-4), 1 - 1e-4), n)
-  if (update_tau2) tau2 <- pmax(pmin(pmax(m, eps), 1 - eps) * (1 - pmin(pmax(m, eps), 1 - eps)) / cv, 1e-10)
-  if (is.null(s2_init)) {                                   # caNRD's non-negative moment estimate as the starting point
-    f0 <- gls(tau2 + stats::var(y))
-    s2_init <- tryCatch(pmax(nnls::nnls(cbind(P2, 1), f0$r^2 - tau2)$x, sigma2_floor), error = function(e) rep(stats::var(y), K + 1))
+  if (update_tau2) tau2 <- binom_tau2(rep(mean(y), n))
+  vy <- max(stats::var(y), sigma2_floor * 10)
+  lo <- rep(sigma2_floor, K + 1); hi <- rep(1, K + 1)
+  clamp <- function(s) pmin(pmax(s, lo), hi)
+  # starting points: given values; caNRD's non-negative moment estimate lifted off the floor; equal split of var(y)
+  f0 <- gls(tau2 + vy)
+  mom <- tryCatch(nnls::nnls(cbind(P2, 1), f0$r^2 - tau2)$x, error = function(e) rep(vy / (K + 1), K + 1))
+  starts <- list(pmax(mom, 0.05 * vy / (K + 1)), rep(vy / (K + 1), K + 1))
+  if (!is.null(s2_init)) { if (length(s2_init) == K) s2_init <- c(s2_init, 0.05 * vy / (K + 1)); starts <- c(list(s2_init), starts) }
+  run <- function(st, t2) tryCatch(stats::optim(clamp(st), nll, t2 = t2, method = "L-BFGS-B", lower = lo, upper = hi,
+                                                control = list(parscale = rep(vy, K + 1), factr = 1e5)), error = function(e) NULL)
+  best <- function(t2, st_list) { o <- lapply(st_list, run, t2 = t2); o <- o[!vapply(o, is.null, logical(1))]
+    if (!length(o)) NULL else o[[which.min(vapply(o, `[[`, numeric(1), "value"))]] }
+  opt <- best(tau2, starts)
+  if (is.null(opt)) return(NULL)
+  s2 <- opt$par; b_prev <- NULL; ll_prev <- -Inf; converged <- opt$convergence == 0; it <- 1L
+  if (update_tau2) {
+    converged <- FALSE
+    for (it in seq_len(max_outer)) {
+      if (it > 1) { o <- run(s2, tau2); if (is.null(o)) return(NULL); opt <- o; s2 <- opt$par }
+      f <- gls(varf(s2, tau2))
+      tau2 <- binom_tau2(as.numeric(X %*% f$b))
+      ll <- -opt$value
+      # converged when the mean stops moving or, as in TCA, the log-likelihood gain is negligible relative to its size
+      if (!is.null(b_prev) && (max(abs(f$b - b_prev)) < tol || abs(ll - ll_prev) < 1e-8 * max(1, abs(ll)))) { converged <- TRUE; break }
+      b_prev <- f$b; ll_prev <- ll
+    }
+    o <- run(s2, tau2); if (!is.null(o)) s2 <- o$par            # final variances at the final (fixed) tau2
   }
-  if (length(s2_init) == K) s2_init <- c(s2_init, sigma2_floor)
-  ls2 <- log(pmax(s2_init, sigma2_floor))
-  lo <- rep(log(sigma2_floor), K + 1); hi <- rep(log(1), K + 1)
-  b_prev <- NULL; ll_prev <- -Inf; converged <- FALSE; it <- 0L
-  for (it in seq_len(if (update_tau2) max_outer else 1L)) {
-    opt <- tryCatch(stats::optim(pmin(pmax(ls2, lo), hi), nll, t2 = tau2, method = "L-BFGS-B", lower = lo, upper = hi),
-                    error = function(e) NULL)
-    if (is.null(opt)) return(NULL)
-    ls2 <- opt$par
-    V <- as.numeric(P2 %*% exp(ls2[1:K])) + exp(ls2[K + 1]) + tau2
-    f <- gls(V)
-    if (!update_tau2) { converged <- opt$convergence == 0; break }
-    m <- as.numeric(X %*% f$b)
-    tau2 <- pmax(pmin(pmax(m, eps), 1 - eps) * (1 - pmin(pmax(m, eps), 1 - eps)) / cv, 1e-10)
-    ll <- -opt$value
-    # converged when the mean stops moving or, as in TCA, the log-likelihood gain is negligible relative to its size
-    if (!is.null(b_prev) && (max(abs(f$b - b_prev)) < tol || abs(ll - ll_prev) < 1e-8 * max(1, abs(ll)))) { converged <- TRUE; break }
-    b_prev <- f$b; ll_prev <- ll
-  }
-  V <- as.numeric(P2 %*% exp(ls2[1:K])) + exp(ls2[K + 1]) + tau2
+  V <- varf(s2, tau2)
   f <- gls(V)
   XtWX <- crossprod(X * sqrt(1 / V))
   vc <- tryCatch(solve(XtWX), error = function(e) .ginv(XtWX))
-  list(b = f$b, sigma2 = exp(ls2[1:K]), tau2_0 = exp(ls2[K + 1]), s2_all = exp(ls2), tau2 = tau2, V = V, vcov = vc,
+  list(b = f$b, sigma2 = s2[1:K], tau2_0 = s2[K + 1], s2_all = s2, tau2 = tau2, V = V, vcov = vc,
        loglik = -0.5 * sum(log(2 * pi * V) + f$r^2 / V), converged = converged, iterations = it)
 }
