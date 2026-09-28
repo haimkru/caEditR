@@ -41,8 +41,8 @@ there 1e-3); theta at the floor means "not expressed". REQUIRED -- pass 0 for tr
 \item{pairs}{optional data.frame with columns `site_id`, `variant_id` listing the (site, variant) pairs to test;
 default all sites x all variants.}
 
-\item{coverage}{optional numeric matrix like `bulk_editing` with read depth; `NULL` = equal depth for all
-samples (only relative weights matter).}
+\item{coverage}{optional sites x samples matrix of read coverage (with dimnames). Strongly recommended: it gives the
+binomial sampling variance. Without it the model is TCA's (a single extra-noise variance).}
 
 \item{covariates}{optional numeric matrix, samples (rows, named) x covariates.}
 
@@ -61,7 +61,8 @@ samples (only relative weights matter).}
 
 \item{max_vif}{variance-inflation factor above which an effect is flagged weakly identifiable (default 10).}
 
-\item{init}{optional list with `sigma2` (named by cell type), e.g. from a caNRD fit, used as starting values only.}
+\item{init}{optional list with `sigma2` (named by cell type, or unnamed in the column order of `proportions`), e.g. from
+a caNRD fit; used as one of several starting values only.}
 
 \item{max_outer}{maximum alternations between the mean/variance fit and the model-based \eqn{\tau^2} update.}
 }
@@ -90,6 +91,8 @@ variance \eqn{\tau^2_0} (extra, non-binomial technical noise / overdispersion), 
 \itemize{
   \item \eqn{\tau^2_i = m_i(1-m_i)/coverage_i} uses the MODEL-PREDICTED bulk level \eqn{m_i} (the variance-fixed caNRD
     sampling variance), so samples with zero edited reads are not treated as exact.
+    Without `coverage` there is no binomial term (\eqn{\tau^2_i = 0}) and \eqn{\tau^2_0} carries all measurement noise,
+    i.e. exactly TCA's variance model; pass coverage whenever it is known.
   \item \eqn{\sigma^2_h} (cell-type biological variances) and \eqn{\tau^2_0} are nuisance parameters estimated by maximum likelihood (started
     from caNRD's non-negative moment estimate), with the mean parameters profiled out by generalized least squares. They
     are RE-ESTIMATED under every null model, never carried over from the alternative.
