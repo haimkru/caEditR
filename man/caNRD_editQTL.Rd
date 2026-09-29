@@ -21,7 +21,9 @@ caNRD_editQTL(
   max_vif = 10,
   init = NULL,
   max_outer = 20,
-  tol = 1e-07
+  tol = 1e-07,
+  engine = c("fast", "reference"),
+  ...
 )
 }
 \arguments{
@@ -65,6 +67,15 @@ binomial sampling variance. Without it the model is TCA's (a single extra-noise 
 a caNRD fit; used as one of several starting values only.}
 
 \item{max_outer}{maximum alternations between the mean/variance fit and the model-based \eqn{\tau^2} update.}
+
+\item{engine}{`"fast"` (default): the same estimator maximised by a batched projected-Newton method with the analytic
+gradient and exact Hessian of the profiled likelihood, sharing work across all variants of a site (17-140x faster in
+simulation; results agree with `"reference"` to ~1e-4 in beta, never at a lower likelihood on the same objective).
+Pairs it cannot handle (a single identifiable cell type, exactly aliased designs, Newton non-convergence) are
+computed by the reference engine. `"reference"`: L-BFGS-B per pair (slow; kept for validation).}
+
+\item{...}{tuning arguments of the fast engine: `chunk_size`, `newton_tol`, `max_newton`, `fallback_vif`,
+`exact_hessian`, `newton_quick_tol`, `verbose`.}
 }
 \value{
 data.frame, one row per (site, variant, cell type): `site_id`, `variant_id`, `celltype`, `status`

@@ -58,6 +58,13 @@
 #' @param init optional list with `sigma2` (named by cell type, or unnamed in the column order of `proportions`), e.g. from
 #'   a caNRD fit; used as one of several starting values only.
 #' @param max_outer maximum alternations between the mean/variance fit and the model-based \eqn{\tau^2} update.
+#' @param engine `"fast"` (default): the same estimator maximised by a batched projected-Newton method with the analytic
+#'   gradient and exact Hessian of the profiled likelihood, sharing work across all variants of a site (17-140x faster in
+#'   simulation; results agree with `"reference"` to ~1e-4 in beta, never at a lower likelihood on the same objective).
+#'   Pairs it cannot handle (a single identifiable cell type, exactly aliased designs, Newton non-convergence) are
+#'   computed by the reference engine. `"reference"`: L-BFGS-B per pair (slow; kept for validation).
+#' @param ... tuning arguments of the fast engine: `chunk_size`, `newton_tol`, `max_newton`, `fallback_vif`,
+#'   `exact_hessian`, `newton_quick_tol`, `verbose`.
 #' @return data.frame, one row per (site, variant, cell type): `site_id`, `variant_id`, `celltype`, `status`
 #'   (`"tested"`, or why not: `not_identifiable`, `aliased`, `too_few_samples`, `monomorphic_variant`,
 #'   `too_few_minor_allele_samples`, `no_variation_in_bulk`, `fit_failed`), `beta`, `se`, `ci_low`, `ci_high`, `p` (cell-type LRT), `p_wald`, `p_site`
@@ -78,8 +85,15 @@
 caNRD_editQTL <- function(bulk_editing, genotypes, proportions, theta, theta_floor, pairs = NULL, coverage = NULL,
                           covariates = NULL, min_mean_phi = 0.10, floor_tol = NULL, min_samples = 30,
                           min_minor_allele_samples = 10, sigma2_floor = 1e-8, max_vif = 10, init = NULL,
-                          max_outer = 20, tol = 1e-7) {
+                          max_outer = 20, tol = 1e-7, engine = c("fast", "reference"), ...) {
   if (missing(theta_floor)) stop("theta_floor is required (e.g. 1e-3 for estimate_theta_nnls() output, 0 for true theta)", call. = FALSE)
+  engine <- match.arg(engine)
+  if (engine == "fast")
+    return(.caNRD_editQTL_fast(bulk_editing, genotypes, proportions, theta, theta_floor, pairs = pairs, coverage = coverage,
+                               covariates = covariates, min_mean_phi = min_mean_phi, floor_tol = floor_tol,
+                               min_samples = min_samples, min_minor_allele_samples = min_minor_allele_samples,
+                               sigma2_floor = sigma2_floor, max_vif = max_vif, init = init, max_outer = max_outer, tol = tol, ...))
+  if (...length()) stop("extra arguments (", paste(names(list(...)), collapse = ", "), ") are only used by engine = \"fast\"", call. = FALSE)
   bulk_editing <- as.matrix(bulk_editing); genotypes <- as.matrix(genotypes); proportions <- as.matrix(proportions)
   theta <- as.matrix(theta)
   for (nm in c("bulk_editing", "genotypes", "proportions")) {

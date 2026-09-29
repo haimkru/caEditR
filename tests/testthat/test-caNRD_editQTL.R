@@ -63,3 +63,14 @@ test_that("regressions from the adversarial review (09.28.2026)", {
   # LRT statistics are non-negative by construction (nesting guard); p == 1 only if beta is exactly 0
   expect_true(all(a$p < 1))
 })
+
+test_that("fast engine matches the reference engine", {
+  d <- sim_eq(seed = 11, beta = c(0.04, 0, 0.02))
+  f <- caNRD_editQTL(d$bulk, d$g, d$p, d$theta, theta_floor = 0, coverage = d$cov)
+  r <- caNRD_editQTL(d$bulk, d$g, d$p, d$theta, theta_floor = 0, coverage = d$cov, engine = "reference")
+  expect_identical(f$status, r$status)
+  expect_equal(f$beta, r$beta, tolerance = 1e-3)
+  expect_equal(f$se, r$se, tolerance = 1e-3)
+  expect_gt(f$loglik[1], r$loglik[1] - 1e-3)
+  expect_error(caNRD_editQTL(d$bulk, d$g, d$p, d$theta, theta_floor = 0, engine = "reference", chunk_size = 5), "fast")
+})

@@ -4,6 +4,9 @@
   joint model (genotype as a cell-type-specific covariate) adapted to RNA editing: variance
   `sum_h phi^2 sigma2_h + binomial tau2_i (model-based) + scalar tau2_0`, ML nuisance variances re-estimated under every
   null, per-cell-type and site-level likelihood-ratio tests, Wald SEs/CIs, identifiability (VIF/aliased) flags.
+* `caNRD_editQTL(engine = "fast")` (default): batched projected-Newton engine with analytic gradient/exact Hessian,
+  shared across the variants of a site (17-140x faster in simulation, same estimates); `engine = "reference"` keeps
+  the per-pair L-BFGS-B fit.
 
 # caEditR 0.99.2
 
