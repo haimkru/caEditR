@@ -13,7 +13,10 @@ caNRD_joint_reconstruction(
   fit,
   coverage = NULL,
   min_mean_phi = 0.1,
-  floor_tol = NULL
+  floor_tol = NULL,
+  sigma2 = c("site", "pooled"),
+  boot_fits = NULL,
+  level = 0.95
 )
 }
 \arguments{
@@ -24,6 +27,12 @@ with a non-trivial `theta`.}
 
 \item{fit}{output of [caNRD_editQTL()] with exactly one variant per site (fitted without covariates). The donors
 reconstructed need not be the donors the fit was estimated on (e.g. held-out donors).}
+
+\item{sigma2}{`"site"` (default): each site's own \eqn{\hat\sigma^2}; `"pooled"`: per-cell-type median over sites.}
+
+\item{boot_fits}{optional list of [caNRD_editQTL()] fits on bootstrap resamples (see [caNRD_editQTL_bootstrap()]).}
+
+\item{level}{interval level (default 0.95).}
 }
 \value{
 list with
@@ -31,9 +40,11 @@ list with
   \item{reconstructed}{named list of sites x samples matrices \eqn{\hat Z_{ih}}}
   \item{conditional_sd}{named list of sites x samples matrices}
   \item{residual}{sites x samples matrix of bulk residuals \eqn{r_i}}
+  \item{total_sd}{named list of sites x samples matrices (NULL without `boot_fits`)}
+  \item{ci_low, ci_high}{named lists of sites x samples interval bounds}
   \item{diagnostics}{data.frame per site: `site_id`, `variant_id`, `status` (`"reconstructed"`, or why not:
     `no_fit`, `not_identifiable`, `fit_not_tested`, `gating_mismatch`), `n_samples`, `n_celltypes`,
-    `frac_out_of_bounds`, `max_vif`, `any_weakly_identifiable`, `tau2_0`}
+    `frac_out_of_bounds`, `max_vif`, `any_weakly_identifiable`, `tau2_0`, `n_boot_used`}
 }
 \description{
 Reconstructs per-donor cell-type editing matrices without cell-type editing references, like [caNRD_edit()], but
@@ -58,6 +69,20 @@ For each site (one variant per site, taken from `fit`):
     (given the parameters; it does not include uncertainty in the fitted parameters).
 }
 Reconstructions are not clipped to \[0, 1\]; the fraction outside is reported per site.
+
+Uncertainty. `conditional_sd` treats the fitted parameters as known and is too narrow (in simulation ~50% coverage of
+nominal 95%): it ignores the estimation noise of \eqn{\hat\mu, \hat\beta, \hat\sigma^2}, and a cell type whose
+\eqn{\hat\sigma^2_h} sits at its floor gets an sd of ~0. Pass `boot_fits` (from [caNRD_editQTL_bootstrap()]) to add
+parameter uncertainty: `total_sd` \eqn{= \sqrt{mean_b (s^{(b)})^2 + var_b(\hat Z^{(b)})}} over the bootstrap fits
+(law of total variance); `ci_low`/`ci_high` use `total_sd` when `boot_fits` is given, `conditional_sd` otherwise.
+
+`sigma2 = "pooled"` uses, for every site, each cell type's median \eqn{\hat\sigma^2_h} over the tested sites of the
+fit in the residual allocation (means, and hence the genetic placement, are unchanged). It assumes cell types have
+similar biological variability across sites.
+
+Accuracy per site depends on the precision of \eqn{\hat\beta} (`se` in the fit): its estimation noise is written
+into every cell type's mean; zero on average across sites, but at weak or null sites unaffected cell types carry a
+spurious genotype pattern of about the size of `se`.
 
 Cautions: the reconstructed matrices contain \eqn{G\hat\beta}, so regressing them on the same genotype again is
 circular and is not independent evidence of an edQTL (use [caNRD_editQTL()] for testing). The estimated betas carry

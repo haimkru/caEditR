@@ -2,6 +2,7 @@
 # 
 export(TCA_Like)
 export(caNRD_editQTL)
+export(caNRD_editQTL_bootstrap)
 export(caNRD_joint_reconstruction)
 export(binomial_tau2)
 export(build_coverage_from_expression)
