@@ -1,5 +1,9 @@
 # caEditR 0.99.3
 
+* New `caNRD_joint_reconstruction()`: genotype-informed caNRD reconstruction of cell-type editing. Cell-type means
+  mu_h + G beta_h from a `caNRD_editQTL()` fit place each site's genetic signal in the cell types the joint model assigns
+  it to before the residual bulk variation is allocated, which removes the genetic leakage of genotype-blind
+  reconstruction (simulation: 73-77% -> ~0).
 * New `caNRD_editQTL()`: joint, likelihood-based cell-type edQTL test under caNRD's latent-editing model, following TCA's
   joint model (genotype as a cell-type-specific covariate) adapted to RNA editing: variance
   `sum_h phi^2 sigma2_h + binomial tau2_i (model-based) + scalar tau2_0`, ML nuisance variances re-estimated under every
