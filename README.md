@@ -1,7 +1,8 @@
+
+
+# caEditR - A suite of Tools for RNA editing cell type Deconvolution
+
 ![Scheme](scheme.png)
-
-
-# caEditR
 
 MIT License (see `LICENSE`). 
 
