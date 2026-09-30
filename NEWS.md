@@ -1,5 +1,10 @@
 # caEditR 0.99.3
 
+* New `caNRD_editQTL_shrink()`: multivariate point-normal empirical-Bayes shrinkage of a `caNRD_editQTL()` fit for
+  genotype-informed reconstruction (the benchmarked recommended setting); batched over sites (~1 ms/site).
+* `caNRD_joint_reconstruction()` is now vectorised over sites (fit indexed once; sites grouped by identifiable cell
+  types; linear time, ~1-2 ms/site) with `chunk_size`, and optional streaming to disk via `out_dir` / `write_fn`.
+  Results are identical to the previous implementation.
 * New `caNRD_joint_reconstruction()`: genotype-informed caNRD reconstruction of cell-type editing. Cell-type means
   mu_h + G beta_h from a `caNRD_editQTL()` fit place each site's genetic signal in the cell types the joint model assigns
   it to before the residual bulk variation is allocated, which removes the genetic leakage of genotype-blind

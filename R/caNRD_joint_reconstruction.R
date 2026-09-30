@@ -22,6 +22,12 @@
 #' }
 #' Reconstructions are not clipped to \[0, 1\]; the fraction outside is reported per site.
 #'
+#' Scaling: the fit is indexed once and sites are processed in chunks, grouped by their set of identifiable cell
+#' types, with all sites of a group computed together as sites x donors matrices (time linear in the number of sites:
+#' ~1-2 ms per site at 500-1,000 donors and 4 cell types). With `out_dir` or `write_fn` the results are streamed chunk
+#' by chunk and the function returns only `diagnostics` and a `chunks` table (the matrix elements are NULL).
+#' For the benchmarked recommended setting, shrink the fit first with [caNRD_editQTL_shrink()].
+#'
 #' Uncertainty. `conditional_sd` treats the fitted parameters as known and is too narrow (in simulation ~50% coverage of
 #' nominal 95%): it ignores the estimation noise of \eqn{\hat\mu, \hat\beta, \hat\sigma^2}, and a cell type whose
 #' \eqn{\hat\sigma^2_h} sits at its floor gets an sd of ~0. Pass `boot_fits` (from [caNRD_editQTL_bootstrap()]) to add
@@ -50,6 +56,12 @@
 #' @param sigma2 `"site"` (default): each site's own \eqn{\hat\sigma^2}; `"pooled"`: per-cell-type median over sites.
 #' @param boot_fits optional list of [caNRD_editQTL()] fits on bootstrap resamples (see [caNRD_editQTL_bootstrap()]).
 #' @param level interval level (default 0.95).
+#' @param chunk_size number of sites processed together (default 1000). Working memory is about
+#'   chunk_size x donors x cell types x ~15 doubles (1000 x 1000 x 4: ~0.5 GB); lower it for many donors.
+#' @param out_dir optional directory: each chunk's result is saved as `chunk_000001.rds`, ... instead of being kept in
+#'   memory (for millions of sites).
+#' @param write_fn optional function `write_fn(chunk_result, chunk_index)` called for every chunk (e.g. to write
+#'   per-cell-type files); takes precedence over `out_dir`'s default writer.
 #' @return list with
 #'   \item{expected}{named list (one per cell type) of sites x samples matrices \eqn{m_{ih}}}
 #'   \item{reconstructed}{named list of sites x samples matrices \eqn{\hat Z_{ih}}}
@@ -75,6 +87,288 @@
 #' rec$diagnostics
 #' @export
 caNRD_joint_reconstruction <- function(bulk_editing, genotypes, proportions, theta, theta_floor, fit, coverage = NULL,
+                                            min_mean_phi = 0.10, floor_tol = NULL, sigma2 = c("site", "pooled"),
+                                            boot_fits = NULL, level = 0.95, chunk_size = 1000L, out_dir = NULL,
+                                            write_fn = NULL) {
+  sigma2 <- match.arg(sigma2)
+  if (missing(theta_floor)) stop("theta_floor is required (e.g. 1e-3 for estimate_theta_nnls() output, 0 for true theta)", call. = FALSE)
+  bulk_editing <- as.matrix(bulk_editing); genotypes <- as.matrix(genotypes); proportions <- as.matrix(proportions)
+  theta <- as.matrix(theta)
+  for (nm in c("bulk_editing", "genotypes", "proportions")) {
+    x <- get(nm)
+    if (is.null(rownames(x)) || is.null(colnames(x))) stop(nm, " must have row and column names", call. = FALSE)
+  }
+  rm(x)
+  need <- c("site_id", "variant_id", "celltype", "status", "beta", "mu", "sigma2", "tau2_0", "vif", "weakly_identifiable")
+  if (!is.data.frame(fit) || !all(need %in% names(fit))) stop("fit must be the output of caNRD_editQTL()", call. = FALSE)
+  if (!is.null(boot_fits) && (!is.list(boot_fits) || is.data.frame(boot_fits) || !length(boot_fits) ||
+      !all(vapply(boot_fits, function(f) is.data.frame(f) && all(need %in% names(f)), logical(1)))))
+    stop("boot_fits must be a list of caNRD_editQTL() fits", call. = FALSE)
+  zq <- stats::qnorm(1 - (1 - level) / 2)
+  pool_s2 <- function(f) { t <- f[f$status == "tested" & is.finite(f$sigma2), , drop = FALSE]
+    vapply(split(t$sigma2, t$celltype), stats::median, numeric(1)) }
+  s2_pool <- if (sigma2 == "pooled") pool_s2(fit) else NULL
+  s2_pool_b <- if (sigma2 == "pooled" && !is.null(boot_fits)) lapply(boot_fits, pool_s2) else NULL
+  celltypes <- colnames(proportions)
+  if (!all(celltypes %in% colnames(theta))) stop("theta must have a column for every cell type in proportions", call. = FALSE)
+  if (any(bulk_editing < 0 | bulk_editing > 1, na.rm = TRUE)) stop("bulk_editing must be editing ratios in [0, 1]", call. = FALSE)
+  if (any(!is.finite(proportions)) || any(proportions < 0)) stop("proportions must be finite and non-negative", call. = FALSE)
+  if (!is.null(coverage)) {
+    coverage <- as.matrix(coverage)
+    if (is.null(rownames(coverage)) || is.null(colnames(coverage))) stop("coverage must have row (site) and column (sample) names", call. = FALSE)
+  }
+  if (is.null(floor_tol)) floor_tol <- min(1e-9, theta_floor / 1e6)
+  pairs <- unique(fit[, c("site_id", "variant_id")])
+  if (anyDuplicated(pairs$site_id)) stop("fit must have exactly one variant per site", call. = FALSE)
+  samples <- Reduce(intersect, list(colnames(bulk_editing), colnames(genotypes), rownames(proportions)))
+  if (!is.null(coverage)) samples <- intersect(samples, colnames(coverage))
+  sites <- rownames(bulk_editing)
+  nS <- length(sites); nN <- length(samples); K <- length(celltypes)
+  if (K > 50) stop("caNRD_joint_reconstruction supports at most 50 cell types", call. = FALSE)
+  bnum <- 2^(seq_len(K) - 1)                        # bit code of a cell-type set
+  vids <- pairs$variant_id[match(sites, pairs$site_id)]
+  has <- !is.na(vids)
+  # the reference checks these inside its site loop, in site order: raise the first failure with the same message
+  bad_t <- has & !(sites %in% rownames(theta)); bad_g <- has & !(vids %in% rownames(genotypes))
+  first_bad <- which(bad_t | bad_g)[1]
+  if (!is.na(first_bad)) {
+    if (bad_t[first_bad]) stop("site ", sites[first_bad], " is missing from theta", call. = FALSE)
+    stop("variant ", vids[first_bad], " is missing from genotypes", call. = FALSE)
+  }
+  srow <- match(sites, sites)                       # first bulk row of each site id (what bulk_editing[sid, ] returns)
+
+  # ---- one-pass index of a fit: for every site (first bulk row) and cell type the first matching fit row, the tested
+  # pattern and the length of the reference's `tested` vector (rows with status "tested" or NA)
+  index_fit <- function(f, filter_variant) {
+    fi <- match(f$site_id, sites)
+    sel <- which(!is.na(fi))
+    if (filter_variant) { vv <- f$variant_id[sel]; sel <- sel[!is.na(vv) & vv == vids[fi[sel]]] }
+    fs <- fi[sel]
+    ci <- match(f$celltype[sel], celltypes)
+    st <- f$status[sel]
+    tst <- !is.na(st) & st == "tested"
+    extra <- is.na(st) | (tst & is.na(ci))          # elements of `tested` that can never be in ident
+    okc <- !is.na(ci)
+    cell <- fs[okc] + (ci[okc] - 1L) * nS
+    row <- matrix(NA_integer_, nS, K)
+    fst <- !duplicated(cell)
+    row[cell[fst]] <- sel[okc][fst]
+    tested <- matrix(tabulate(cell[tst[okc]], nbins = nS * K) > 0L, nS, K)
+    ext <- tabulate(fs[extra], nbins = nS) > 0L
+    cnt <- tabulate(fs[tst | is.na(st)], nbins = nS)
+    list(row = row, tested = tested, ext = ext, cnt = cnt)
+  }
+  fidx <- index_fit(fit, FALSE)                     # one variant per site: site match implies variant match
+  fcol <- lapply(stats::setNames(c("mu", "beta", "sigma2", "tau2_0", "vif", "weakly_identifiable"),
+                                 c("mu", "beta", "sigma2", "tau2_0", "vif", "weakly_identifiable")), function(v) fit[[v]])
+  bidx <- NULL
+  if (!is.null(boot_fits)) {
+    nB <- length(boot_fits)
+    bidx <- lapply(seq_len(nB), function(b) {
+      ix <- index_fit(boot_fits[[b]], TRUE)
+      code <- drop(ix$tested %*% bnum); code[ix$ext] <- -1
+      f <- boot_fits[[b]]
+      list(row = ix$row, code = code, mu = f$mu, beta = f$beta, sigma2 = f$sigma2, tau2_0 = f$tau2_0)
+    })
+  }
+
+  # ---- input column / row maps
+  colB <- match(samples, colnames(bulk_editing)); colG <- match(samples, colnames(genotypes))
+  P <- proportions[match(samples, rownames(proportions)), , drop = FALSE]
+  P <- P[, match(celltypes, colnames(proportions)), drop = FALSE]
+  thJ <- match(celltypes, colnames(theta))
+  colC <- if (!is.null(coverage)) match(samples, colnames(coverage)) else NULL
+
+  # phi of the sites of one group (cell-type set J), as a list over J of (sites x donors) matrices
+  phi_for <- function(J, th) {
+    pp <- P[, J, drop = FALSE]; rs <- rowSums(pp); q <- pp / rs
+    W <- lapply(seq_along(J), function(a) outer(th[, J[a]], q[, a]))
+    sw <- W[[1]]; if (length(J) > 1) for (a in 2:length(J)) sw <- sw + W[[a]]
+    list(phi = lapply(W, function(w) w / sw), rs_pos = rs > 0)
+  }
+  # vectorised .cjr_core(): per-site parameter vectors (length = n sites) per cell type
+  core <- function(Y, G, phi, CV, mu, be, s2, t0) {
+    k <- length(phi)
+    M <- lapply(seq_len(k), function(a) G * be[[a]] + mu[[a]])
+    mb <- phi[[1]] * M[[1]]; if (k > 1) for (a in 2:k) mb <- mb + phi[[a]] * M[[a]]
+    v <- if (!is.null(CV)) { mc <- pmin(pmax(mb, 0.5 / CV), 1 - 0.5 / CV); mc * (1 - mc) / CV + t0 }
+         else matrix(t0, nrow(Y), ncol(Y))
+    A <- lapply(seq_len(k), function(a) phi[[a]] * s2[[a]])
+    denom <- v; for (a in seq_len(k)) denom <- denom + A[[a]] * phi[[a]]
+    r <- Y - mb; f <- r / denom
+    list(M = M, r = r, Zh = lapply(seq_len(k), function(a) M[[a]] + A[[a]] * f),
+         sdz = lapply(seq_len(k), function(a) sqrt(pmax(s2[[a]] - A[[a]]^2 / denom, 0))))
+  }
+
+  # ---- diagnostics (filled per site; data.frame built at the end with the reference's column types)
+  d_status <- rep("no_fit", nS); d_ns <- integer(nS); d_nct <- integer(nS); d_foob <- rep(NA_real_, nS)
+  d_vif <- rep(NA_real_, nS); d_weak <- rep(NA, nS); d_t0 <- rep(NA_real_, nS); d_nb <- integer(nS)
+
+  streaming <- !is.null(out_dir) || !is.null(write_fn)
+  if (!is.null(out_dir)) dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+  new_mats <- function(n, rn) {
+    blank <- matrix(NA_real_, n, nN, dimnames = list(rn, samples))
+    one <- stats::setNames(rep(list(blank), K), celltypes)
+    list(expected = one, reconstructed = one, conditional_sd = one, residual = blank,
+         total_sd = if (!is.null(boot_fits)) one else NULL, ci_low = one, ci_high = one)
+  }
+  full <- if (!streaming) new_mats(nS, sites) else NULL
+
+  chunk_size <- max(1L, as.integer(chunk_size))
+  starts <- seq.int(1L, max(nS, 1L), by = chunk_size)
+  if (nS == 0L) starts <- integer(0)
+  chunk_tab <- data.frame(chunk = seq_along(starts), first_row = starts,
+                          last_row = pmin(starts + chunk_size - 1L, nS), file = NA_character_, stringsAsFactors = FALSE)
+
+  for (ci in seq_along(starts)) {
+    rows <- starts[ci]:chunk_tab$last_row[ci]
+    out <- if (streaming) new_mats(length(rows), sites[rows]) else NULL
+    ks <- rows[has[rows]]
+    if (length(ks)) {
+      Y <- bulk_editing[srow[ks], colB, drop = FALSE]
+      G <- genotypes[match(vids[ks], rownames(genotypes)), colG, drop = FALSE]
+      okb <- is.finite(Y) & is.finite(G)
+      CV <- NULL
+      if (!is.null(coverage)) {
+        cr <- match(sites[ks], rownames(coverage))
+        if (anyNA(cr)) stop("subscript out of bounds (site ", sites[ks][which(is.na(cr))[1]], " missing from coverage)", call. = FALSE)
+        CVraw <- coverage[cr, colC, drop = FALSE]
+        okb <- okb & is.finite(CVraw)
+        CV <- pmax(CVraw, 1); rm(CVraw)
+      }
+      TH <- theta[match(sites[ks], rownames(theta)), thJ, drop = FALSE]
+      I0 <- TH > theta_floor + floor_tol
+      if (anyNA(I0)) stop("theta has missing values for a site with a fit", call. = FALSE)
+      # stage 1: floor gating, then mean-phi gating (means over the donors usable after the floor gating)
+      c0 <- drop(I0 %*% bnum)
+      I1 <- matrix(FALSE, length(ks), K)
+      z0 <- which(c0 == 0)
+      if (length(z0)) { d_status[ks[z0]] <- "not_identifiable"; d_ns[ks[z0]] <- rowSums(okb[z0, , drop = FALSE]) }
+      for (cc in setdiff(unique(c0), 0)) {
+        gi <- which(c0 == cc); J <- which(I0[gi[1], ])
+        pf <- phi_for(J, TH[gi, , drop = FALSE])
+        ok0 <- okb[gi, , drop = FALSE] & rep(pf$rs_pos, each = length(gi))
+        nok <- rowSums(ok0)
+        if (any(nok == 0)) stop("missing value where TRUE/FALSE needed (site ", sites[ks[gi[nok == 0][1]]], " has no usable sample)", call. = FALSE)
+        keep <- do.call(cbind, lapply(pf$phi, function(p) { p[!ok0] <- 0; rowSums(p) / nok })) >= min_mean_phi
+        I1[gi, J] <- keep
+        none <- rowSums(keep) == 0
+        if (any(none)) { d_status[ks[gi[none]]] <- "not_identifiable"; d_ns[ks[gi[none]]] <- nok[none]; d_nct[ks[gi[none]]] <- 0L }
+      }
+      # stage 2: per final identifiable set, check the fit, reconstruct
+      c1 <- drop(I1 %*% bnum)
+      for (cc in setdiff(unique(c1), 0)) {
+        gi <- which(c1 == cc); J <- which(I1[gi[1], ]); k <- length(J); kk <- ks[gi]; sr <- srow[kk]
+        pf <- phi_for(J, TH[gi, , drop = FALSE])
+        ok <- okb[gi, , drop = FALSE] & rep(pf$rs_pos, each = length(gi))
+        d_ns[kk] <- rowSums(ok); d_nct[kk] <- k
+        Ipat <- matrix(seq_len(K) %in% J, length(gi), K, byrow = TRUE)
+        tt <- fidx$tested[sr, , drop = FALSE]; ext <- fidx$ext[sr]
+        eq <- !ext & rowSums(tt != Ipat) == 0
+        if (any(!eq)) {
+          ne <- which(!eq)
+          sub <- !ext[ne] & rowSums(tt[ne, , drop = FALSE] & !Ipat[ne, , drop = FALSE]) == 0
+          d_status[kk[ne]] <- ifelse(sub & fidx$cnt[sr[ne]] < k, "fit_not_tested", "gating_mismatch")
+        }
+        if (!any(eq)) next
+        w <- which(eq); kw <- kk[w]; srw <- sr[w]; gw <- gi[w]
+        R <- fidx$row[srw, J, drop = FALSE]
+        phw <- lapply(pf$phi, function(p) p[w, , drop = FALSE])
+        okw <- ok[w, , drop = FALSE]
+        Yw <- Y[gw, , drop = FALSE]; Gw <- G[gw, , drop = FALSE]; CVw <- if (!is.null(CV)) CV[gw, , drop = FALSE] else NULL
+        par <- function(src, Rm, pool) {
+          list(mu = lapply(seq_len(k), function(a) src$mu[Rm[, a]]),
+               be = lapply(seq_len(k), function(a) src$beta[Rm[, a]]),
+               s2 = lapply(seq_len(k), function(a) if (is.null(pool)) src$sigma2[Rm[, a]] else rep(unname(pool[celltypes[J[a]]]), nrow(Rm))),
+               t0 = src$tau2_0[Rm[, 1]])
+        }
+        pm <- par(fcol, R, s2_pool)
+        m <- core(Yw, Gw, phw, CVw, pm$mu, pm$be, pm$s2, pm$t0)
+        sd_int <- m$sdz
+        if (!is.null(boot_fits)) {
+          nw <- length(w)
+          s1 <- s2a <- w2 <- rep(list(matrix(0, nw, nN)), k); nb <- integer(nw)
+          for (b in seq_len(nB)) {
+            bx <- bidx[[b]]
+            vb <- which(bx$code[srw] == cc)
+            if (!length(vb)) next
+            pb <- par(bx, bx$row[srw[vb], J, drop = FALSE], if (is.null(s2_pool_b)) NULL else s2_pool_b[[b]])
+            cb <- core(Yw[vb, , drop = FALSE], Gw[vb, , drop = FALSE], lapply(phw, function(p) p[vb, , drop = FALSE]),
+                       if (!is.null(CVw)) CVw[vb, , drop = FALSE] else NULL, pb$mu, pb$be, pb$s2, pb$t0)
+            all_rows <- length(vb) == nw
+            for (a in seq_len(k)) {
+              if (all_rows) {
+                s1[[a]] <- s1[[a]] + cb$Zh[[a]]; s2a[[a]] <- s2a[[a]] + cb$Zh[[a]]^2; w2[[a]] <- w2[[a]] + cb$sdz[[a]]^2
+              } else {
+                s1[[a]][vb, ] <- s1[[a]][vb, ] + cb$Zh[[a]]; s2a[[a]][vb, ] <- s2a[[a]][vb, ] + cb$Zh[[a]]^2
+                w2[[a]][vb, ] <- w2[[a]][vb, ] + cb$sdz[[a]]^2
+              }
+            }
+            nb[vb] <- nb[vb] + 1L
+          }
+          d_nb[kw] <- nb
+          sd_int <- lapply(seq_len(k), function(a) {
+            x <- sqrt(w2[[a]] / nb + pmax(s2a[[a]] / nb - (s1[[a]] / nb)^2, 0) * nb / (nb - 1))
+            x[nb < 2, ] <- NA_real_; x })
+        }
+        # write (non-usable donors stay NA, as in the reference)
+        tgt_rows <- if (streaming) kw - rows[1] + 1L else kw
+        oob <- matrix(0, length(w), nN)
+        for (a in seq_len(k)) {
+          h <- celltypes[J[a]]
+          Ma <- m$M[[a]]; Za <- m$Zh[[a]]; Sa <- m$sdz[[a]]; Ia <- sd_int[[a]]
+          lo <- Za - zq * Ia; hi <- Za + zq * Ia
+          ob <- Za < 0 | Za > 1; ob[!okw] <- FALSE; oob <- oob + ob
+          Ma[!okw] <- NA; Za[!okw] <- NA; Sa[!okw] <- NA; lo[!okw] <- NA; hi[!okw] <- NA
+          if (streaming) {
+            out$expected[[h]][tgt_rows, ] <- Ma; out$reconstructed[[h]][tgt_rows, ] <- Za
+            out$conditional_sd[[h]][tgt_rows, ] <- Sa
+            if (!is.null(boot_fits)) { Ia[!okw] <- NA; out$total_sd[[h]][tgt_rows, ] <- Ia }
+            out$ci_low[[h]][tgt_rows, ] <- lo; out$ci_high[[h]][tgt_rows, ] <- hi
+          } else {
+            full$expected[[h]][tgt_rows, ] <- Ma; full$reconstructed[[h]][tgt_rows, ] <- Za
+            full$conditional_sd[[h]][tgt_rows, ] <- Sa
+            if (!is.null(boot_fits)) { Ia[!okw] <- NA; full$total_sd[[h]][tgt_rows, ] <- Ia }
+            full$ci_low[[h]][tgt_rows, ] <- lo; full$ci_high[[h]][tgt_rows, ] <- hi
+          }
+        }
+        rr <- m$r; rr[!okw] <- NA
+        if (streaming) out$residual[tgt_rows, ] <- rr else full$residual[tgt_rows, ] <- rr
+        d_status[kw] <- "reconstructed"
+        d_foob[kw] <- rowSums(oob) / (rowSums(okw) * k)
+        vifm <- matrix(as.numeric(fcol$vif[R]), nrow(R), k)
+        weakm <- matrix(fcol$weakly_identifiable[R], nrow(R), k)
+        d_vif[kw] <- do.call(pmax, lapply(seq_len(k), function(a) vifm[, a]))
+        d_weak[kw] <- Reduce(`|`, lapply(seq_len(k), function(a) weakm[, a]))
+        d_t0[kw] <- pm$t0
+      }
+    }
+    if (streaming) {
+      out$diagnostics <- .cjr_fast_diag(rows, sites, vids, d_status, d_ns, d_nct, d_foob, d_vif, d_weak, d_t0, d_nb)
+      out$chunk <- ci; out$sites <- sites[rows]; out$out_dir <- out_dir
+      if (!is.null(write_fn)) write_fn(out, ci)
+      else { fn <- file.path(out_dir, sprintf("chunk_%06d.rds", ci)); saveRDS(out, fn); chunk_tab$file[ci] <- fn }
+      rm(out)
+    }
+  }
+  diag <- .cjr_fast_diag(seq_len(nS), sites, vids, d_status, d_ns, d_nct, d_foob, d_vif, d_weak, d_t0, d_nb)
+  if (streaming)
+    return(list(expected = NULL, reconstructed = NULL, conditional_sd = NULL, residual = NULL, total_sd = NULL,
+                ci_low = NULL, ci_high = NULL, diagnostics = diag, chunks = chunk_tab))
+  c(full[c("expected", "reconstructed", "conditional_sd", "residual")], list(total_sd = full$total_sd),
+    full[c("ci_low", "ci_high")], list(diagnostics = diag))
+}
+
+.cjr_fast_diag <- function(i, sites, vids, st, ns, nct, foob, vif, weak, t0, nb) {
+  d <- data.frame(site_id = sites[i], variant_id = vids[i], status = st[i], n_samples = as.integer(ns[i]), n_celltypes = as.integer(nct[i]),
+                  frac_out_of_bounds = foob[i], max_vif = vif[i], any_weakly_identifiable = as.logical(weak[i]),
+                  tau2_0 = t0[i], n_boot_used = nb[i], stringsAsFactors = FALSE)
+  rownames(d) <- NULL
+  d
+}
+
+# Reference (per-site) implementation, kept for validation of the vectorised caNRD_joint_reconstruction().
+.caNRD_joint_reconstruction_reference <- function(bulk_editing, genotypes, proportions, theta, theta_floor, fit, coverage = NULL,
                                        min_mean_phi = 0.10, floor_tol = NULL, sigma2 = c("site", "pooled"),
                                        boot_fits = NULL, level = 0.95) {
   sigma2 <- match.arg(sigma2)

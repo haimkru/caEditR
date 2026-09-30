@@ -16,7 +16,10 @@ caNRD_joint_reconstruction(
   floor_tol = NULL,
   sigma2 = c("site", "pooled"),
   boot_fits = NULL,
-  level = 0.95
+  level = 0.95,
+  chunk_size = 1000L,
+  out_dir = NULL,
+  write_fn = NULL
 )
 }
 \arguments{
@@ -33,6 +36,15 @@ reconstructed need not be the donors the fit was estimated on (e.g. held-out don
 \item{boot_fits}{optional list of [caNRD_editQTL()] fits on bootstrap resamples (see [caNRD_editQTL_bootstrap()]).}
 
 \item{level}{interval level (default 0.95).}
+
+\item{chunk_size}{number of sites processed together (default 1000). Working memory is about
+chunk_size x donors x cell types x ~15 doubles (1000 x 1000 x 4: ~0.5 GB); lower it for many donors.}
+
+\item{out_dir}{optional directory: each chunk's result is saved as `chunk_000001.rds`, ... instead of being kept in
+memory (for millions of sites).}
+
+\item{write_fn}{optional function `write_fn(chunk_result, chunk_index)` called for every chunk (e.g. to write
+per-cell-type files); takes precedence over `out_dir`'s default writer.}
 }
 \value{
 list with
@@ -69,6 +81,12 @@ For each site (one variant per site, taken from `fit`):
     (given the parameters; it does not include uncertainty in the fitted parameters).
 }
 Reconstructions are not clipped to \[0, 1\]; the fraction outside is reported per site.
+
+Scaling: the fit is indexed once and sites are processed in chunks, grouped by their set of identifiable cell
+types, with all sites of a group computed together as sites x donors matrices (time linear in the number of sites:
+~1-2 ms per site at 500-1,000 donors and 4 cell types). With `out_dir` or `write_fn` the results are streamed chunk
+by chunk and the function returns only `diagnostics` and a `chunks` table (the matrix elements are NULL).
+For the benchmarked recommended setting, shrink the fit first with [caNRD_editQTL_shrink()].
 
 Uncertainty. `conditional_sd` treats the fitted parameters as known and is too narrow (in simulation ~50% coverage of
 nominal 95%): it ignores the estimation noise of \eqn{\hat\mu, \hat\beta, \hat\sigma^2}, and a cell type whose
