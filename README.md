@@ -1,3 +1,6 @@
+![Scheme](scheme.png)
+
+
 # caEditR
 
 MIT License (see `LICENSE`). 
