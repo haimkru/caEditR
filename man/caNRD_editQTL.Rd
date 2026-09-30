@@ -76,9 +76,10 @@ computed by the reference engine. `"reference"`: L-BFGS-B per pair (slow; kept f
 `"scan"`: for genome-wide cis scans (many variants per site). Per site the variance components are estimated once
 from the genotype-free model; every variant is then tested by GLS at that fixed variance, batched over variants
 (tensorQTL/EMMAX-style; ~0.5-1 ms per pair at 1,000 donors, vs ~50 ms with "fast"). For these pairs `p` is the
-per-cell-type Wald test at the fixed null variance and `p_site` the K-df Wald test. Pairs with min(p, p_site) below
-`refine` (default 1e-3) are re-fitted with the exact "fast" engine and flagged `refined = TRUE` (their rows are the
-exact results). In simulation the scan was calibrated (per-test FPR 0.049 at 0.05, 0.0011 at 0.001), had the same
+per-cell-type Wald test at the fixed null variance and `p_site` the K-df Wald test. With `refine = "lead"` (default)
+the lead variant of each site (smallest `p_site`) is re-fitted with the exact "fast" engine, as tensorQTL treats
+the top variant per phenotype specially; `refine = <p>` re-fits every pair with min(p, p_site) below the threshold
+(slow for many hits: ~50 ms per re-fitted pair); refined rows are the exact results (`refined = TRUE`). In simulation the scan was calibrated (per-test FPR 0.049 at 0.05, 0.0011 at 0.001), had the same
 wrong-cell-type rate as the exact engine, and with refinement the same power; without refinement it loses power at
 strong effects because the fixed null variance absorbs part of the effect. Adds column `refined`; with
 `vcov = "beta"` or `"mu_beta"` also the attribute `"coef_cov"` (per-pair coefficient covariances; off by default
