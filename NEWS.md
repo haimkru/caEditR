@@ -1,5 +1,8 @@
 # caEditR 0.99.3
 
+* Compiled kernels (Rcpp, `src/scan_kernels.cpp`) for the scan engine: per-variant statistics in one pass and the
+  per-variant K x K algebra; results identical to the R code (<= 5e-13). `refine = "lead"` (default) re-fits the lead
+  variant of each site exactly. Genotype range checks no longer build temporary matrices.
 * `caNRD_editQTL(engine = "scan")`: genome-wide cis scans. Variance components once per site (batched over sites),
   every variant tested by GLS at that fixed variance in batched matrix algebra; pairs with p < `refine` (default 1e-3)
   re-fitted exactly (`refined = TRUE`); sites whose null fit fails go to the exact engine. Calibrated in simulation.

@@ -30,7 +30,7 @@
 # Gating, input validation and statuses are copied verbatim from the fast engine (identical to caNRD_editQTL).
 # Variants with missing genotypes form their own context (own null fit on their own sample set, as gating requires),
 # so the scan speed-up applies to variants with complete genotypes (e.g. imputed dosages).
-# refine = 1e-3 (default) or NULL / another p threshold: pairs with min(p_site, p over cell types) < refine are re-fitted with
+# refine = "lead" (default: the variant with the smallest p_site at each site), a p threshold, or NULL: pairs with min(p_site, p over cell types) < refine are re-fitted with
 #   caNRD_editQTL(engine = "fast") (all arguments passed through; refine_args = extra fast-engine tuning arguments).
 # vcov = "none" (default), "beta" (beta-beta block) or "mu_beta" (full (mu, beta) block); large for many pairs.
 # To use outside the package: sys.source(this file, envir = e) with e <- new.env(parent = asNamespace("caEditR")),
@@ -39,12 +39,12 @@
 .caNRD_editQTL_scan <- function(bulk_editing, genotypes, proportions, theta, theta_floor, pairs = NULL, coverage = NULL,
                                covariates = NULL, min_mean_phi = 0.10, floor_tol = NULL, min_samples = 30,
                                min_minor_allele_samples = 10, sigma2_floor = 1e-8, max_vif = 10, init = NULL,
-                               max_outer = 20, tol = 1e-7, refine = 1e-3, refine_args = list(),
+                               max_outer = 20, tol = 1e-7, refine = "lead", refine_args = list(),
                                vcov = c("none", "beta", "mu_beta"), block_size = NULL, verbose = FALSE) {
   if (missing(theta_floor)) stop("theta_floor is required (e.g. 1e-3 for estimate_theta_nnls() output, 0 for true theta)", call. = FALSE)
   vcov <- match.arg(vcov)
-  if (!is.null(refine) && !(is.numeric(refine) && length(refine) == 1 && refine > 0 && refine <= 1))
-    stop("refine must be NULL or a single p-value threshold in (0, 1]", call. = FALSE)
+  if (!is.null(refine) && !identical(refine, "lead") && !(is.numeric(refine) && length(refine) == 1 && refine > 0 && refine <= 1))
+    stop("refine must be \"lead\", NULL or a single p-value threshold in (0, 1]", call. = FALSE)
   bulk_in <- bulk_editing; geno_in <- genotypes; cov_in <- coverage; covar_in <- covariates; init_in <- init
   bulk_editing <- as.matrix(bulk_editing); genotypes <- as.matrix(genotypes); proportions <- as.matrix(proportions)
   theta <- as.matrix(theta)
@@ -57,8 +57,8 @@
   if (any(bulk_editing < 0 | bulk_editing > 1, na.rm = TRUE)) stop("bulk_editing must be editing ratios in [0, 1]", call. = FALSE)
   if (any(!is.finite(proportions)) || any(proportions < 0)) stop("proportions must be finite and non-negative", call. = FALSE)
   op <- options(matprod = "blas"); on.exit(options(op), add = TRUE)
-  g_rng <- suppressWarnings(range(genotypes, na.rm = TRUE))                     # one pass, no temporary
-  if (g_rng[1] <= g_rng[2] && (g_rng[1] < 0 || g_rng[2] > 2)) stop("genotypes must be dosages in [0, 2]", call. = FALSE)
+  g_lo <- suppressWarnings(min(genotypes, na.rm = TRUE)); g_hi <- suppressWarnings(max(genotypes, na.rm = TRUE))   # 2 passes, no temporaries
+  if (g_lo <= g_hi && (g_lo < 0 || g_hi > 2)) stop("genotypes must be dosages in [0, 2]", call. = FALSE)
   if (!is.null(coverage)) {
     coverage <- as.matrix(coverage)
     if (is.null(rownames(coverage)) || is.null(colnames(coverage))) stop("coverage must have row (site) and column (sample) names", call. = FALSE)
@@ -118,15 +118,10 @@
   # donors a site excludes: sum of rounded dosages, carriers (round >= 1), non-hom-alt (round <= 1), sum, sum of squares
   jG0 <- match(samples, colnames(genotypes)); iU <- match(uv, rownames(genotypes))
   v_sr <- v_c1 <- v_c2 <- v_s1 <- v_s2 <- stats::setNames(numeric(length(uv)), uv)
-  for (st in seq(1, length(uv), by = 5000)) {
-    ii <- st:min(length(uv), st + 4999)
-    Gb <- genotypes[iU[ii], jG0, drop = FALSE]
-    v_na[ii] <- rowSums(is.na(Gb)) > 0
-    Gr <- round(Gb)
-    v_sr[ii] <- rowSums(Gr, na.rm = TRUE); v_c1[ii] <- rowSums(Gr >= 1, na.rm = TRUE); v_c2[ii] <- rowSums(Gr <= 1, na.rm = TRUE)
-    v_s1[ii] <- rowSums(Gb, na.rm = TRUE); v_s2[ii] <- rowSums(Gb * Gb, na.rm = TRUE)
-  }
-  rm(Gb, Gr)
+  if (!is.double(genotypes)) storage.mode(genotypes) <- "double"
+  S6 <- .sc_variant_stats_cpp(genotypes, iU, jG0)                          # one compiled pass (src/scan_kernels.cpp)
+  v_na[] <- S6[, 1] > 0; v_sr[] <- S6[, 2]; v_c1[] <- S6[, 3]; v_c2[] <- S6[, 4]; v_s1[] <- S6[, 5]; v_s2[] <- S6[, 6]
+  rm(S6)
   ivU <- match(vidc, uv)                                                    # integer index of each pair's variant in uv
   key <- ifelse(v_na[ivU], paste(sidc, vidc, sep = "\r"), sidc)
   ctx_list <- split(seq_len(npair), factor(key, levels = unique(key)))
@@ -262,7 +257,10 @@
   if (!is.null(refine)) {
     pm <- matrix(O$p, nct); ps <- matrix(O$p_site, nct)[1, ]
     pmin_pair <- suppressWarnings(do.call(pmin, c(list(ps), lapply(seq_len(nrow(pm)), function(i) pm[i, ]), list(na.rm = TRUE))))
-    rk <- which(is.finite(pmin_pair) & pmin_pair < refine)
+    rk <- if (identical(refine, "lead")) {                                  # the lead variant of each site (smallest p_site)
+      okp <- which(is.finite(ps)); if (!length(okp)) integer(0) else {
+        o <- okp[order(ps[okp])]; o[!duplicated(sidc[o])] }
+    } else which(is.finite(pmin_pair) & pmin_pair < refine)
     if (length(rk)) {
       if (verbose) message(sprintf("[caNRD_editQTL_scan] refining %d pairs with engine = \"fast\"", length(rk)))
       ex <- do.call(caNRD_editQTL, c(list(bulk_in, geno_in, proportions, theta, theta_floor = theta_floor,
@@ -476,6 +474,32 @@
 
 # all variants of one block: G = n x nv genotype matrix (samples in the site's order)
 .sc_scan_block <- function(site, Gv, want_cov = TRUE) {                     # Gv: variants x donors
+  K <- site$K; q0 <- site$q0; nv <- nrow(Gv)
+  M1 <- Gv %*% site$F1; Mg0 <- M1[, seq_len(K * q0), drop = FALSE]; u <- M1[, K * q0 + seq_len(K), drop = FALSE]
+  Mgg <- (Gv * Gv) %*% site$Fgg
+  k <- .sc_block_post_cpp(Mg0, Mgg, u, site$M00i, site$a0, site$kidx, site$ut, want_cov, 1e-13)   # src/scan_kernels.cpp
+  out <- list(beta = k$beta, se = k$se, p = 2 * stats::pnorm(abs(k$beta / k$se), lower.tail = FALSE),
+              p_site = stats::pchisq(pmax(k$stat, 0), K, lower.tail = FALSE), vif = k$vif, mu = k$mu,
+              loglik = site$ll0 + 0.5 * k$stat, ok = k$ok)
+  if (want_cov) { out$cbb <- k$inv; out$cmm <- k$cmm
+    out$cmb <- lapply(seq_len(K), function(l) matrix(k$cmb[, , l], nv, K)) }
+  for (v in which(!out$ok)) {                                               # exactly singular block: reference formulas
+    ex <- .sc_pair_singular(site, Gv[v, ])
+    out$beta[v, ] <- ex$beta; out$se[v, ] <- ex$se; out$p[v, ] <- 2 * stats::pnorm(abs(ex$beta / ex$se), lower.tail = FALSE)
+    out$vif[v, ] <- ex$vif; out$mu[v, ] <- ex$mu; out$loglik[v] <- ex$loglik
+    out$p_site[v] <- stats::pchisq(max(0, 2 * (ex$loglik - site$ll0)), K, lower.tail = FALSE)
+    if (want_cov) {
+      vc <- ex$vc; jm <- seq_len(K); jb <- K + seq_len(K); ut <- site$ut
+      out$cbb[v, ] <- vc[cbind(jb[ut[, 1]], jb[ut[, 2]])]; out$cmm[v, ] <- vc[cbind(jm[ut[, 1]], jm[ut[, 2]])]
+      for (l in seq_len(K)) out$cmb[[l]][v, ] <- -vc[jm, jb[l]]
+    }
+  }
+  out$ok[] <- TRUE
+  out
+}
+
+# R implementation of .sc_scan_block (reference for the compiled kernel)
+.sc_scan_block_R <- function(site, Gv, want_cov = TRUE) {                     # Gv: variants x donors
   K <- site$K; q0 <- site$q0; kidx <- site$kidx; nv <- nrow(Gv)
   M1 <- Gv %*% site$F1; Mg0 <- M1[, seq_len(K * q0), drop = FALSE]; u <- M1[, K * q0 + seq_len(K), drop = FALSE]
   Mgg <- (Gv * Gv) %*% site$Fgg

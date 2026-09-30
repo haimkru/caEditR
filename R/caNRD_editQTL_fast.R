@@ -38,7 +38,8 @@
   if (any(!is.finite(proportions)) || any(proportions < 0)) stop("proportions must be finite and non-negative", call. = FALSE)
   # all matrices entering matrix products below are finite by construction: skip R's per-call NaN scan of the operands
   op <- options(matprod = "blas"); on.exit(options(op), add = TRUE)
-  if (any(genotypes < 0 | genotypes > 2, na.rm = TRUE)) stop("genotypes must be dosages in [0, 2]", call. = FALSE)
+  g_lo <- suppressWarnings(min(genotypes, na.rm = TRUE)); g_hi <- suppressWarnings(max(genotypes, na.rm = TRUE))   # 2 passes, no temporaries
+  if (g_lo <= g_hi && (g_lo < 0 || g_hi > 2)) stop("genotypes must be dosages in [0, 2]", call. = FALSE)
   if (!is.null(coverage)) {
     coverage <- as.matrix(coverage)
     if (is.null(rownames(coverage)) || is.null(colnames(coverage))) stop("coverage must have row (site) and column (sample) names", call. = FALSE)

@@ -42,6 +42,7 @@ Depends: R (>= 4.1.0)
 SystemRequirements: Python (>= 3.9), numpy, scipy
 biocViews: Software, StatisticalMethod, RNASeq, GeneExpression, Transcriptomics, Preprocessing
 Imports:
+    Rcpp,
     jsonlite,
     nnls,
     stats,
@@ -67,3 +68,4 @@ VignetteBuilder: knitr
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0
 RoxygenNote: 8.0.0
+LinkingTo: Rcpp
