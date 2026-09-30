@@ -1,5 +1,8 @@
 # caEditR 0.99.3
 
+* `caNRD_editQTL(engine = "scan")`: genome-wide cis scans. Variance components once per site (batched over sites),
+  every variant tested by GLS at that fixed variance in batched matrix algebra; pairs with p < `refine` (default 1e-3)
+  re-fitted exactly (`refined = TRUE`); sites whose null fit fails go to the exact engine. Calibrated in simulation.
 * New `caNRD_editQTL_shrink()`: multivariate point-normal empirical-Bayes shrinkage of a `caNRD_editQTL()` fit for
   genotype-informed reconstruction (the benchmarked recommended setting); batched over sites (~1 ms/site).
 * `caNRD_joint_reconstruction()` is now vectorised over sites (fit indexed once; sites grouped by identifiable cell

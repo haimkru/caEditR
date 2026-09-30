@@ -74,3 +74,31 @@ test_that("fast engine matches the reference engine", {
   expect_gt(f$loglik[1], r$loglik[1] - 1e-3)
   expect_error(caNRD_editQTL(d$bulk, d$g, d$p, d$theta, theta_floor = 0, engine = "reference", chunk_size = 5), "fast")
 })
+
+test_that("scan engine agrees with the exact engine", {
+  set.seed(31); n <- 500; S <- 6
+  p <- matrix(stats::rgamma(n * 3, 5), n, 3, dimnames = list(paste0("s", 1:n), c("A", "B", "C"))); p <- p / rowSums(p)
+  sites <- paste0("site", 1:S)
+  G <- matrix(stats::rbinom(4 * S * n, 2, 0.3), 4 * S, n, dimnames = list(paste0("v", 1:(4 * S)), rownames(p)))
+  cov <- matrix(stats::rpois(S * n, 70) + 10, S, n, dimnames = list(sites, rownames(p)))
+  bulk <- t(sapply(1:S, function(k) { g <- G[4 * k - 3, ]; Z <- sapply(1:3, function(h) 0.12 + (h == 1) * 0.04 * g + stats::rnorm(n, 0, 0.02))
+    stats::rbinom(n, cov[k, ], rowSums(p * pmin(pmax(Z, 0), 1))) / cov[k, ] })); dimnames(bulk) <- list(sites, rownames(p))
+  th <- matrix(1, S, 3, dimnames = list(sites, colnames(p)))
+  pairs <- data.frame(site_id = rep(sites, each = 4), variant_id = paste0("v", 1:(4 * S)))
+  ex <- caNRD_editQTL(bulk, G, p, th, 0, pairs = pairs, coverage = cov)
+  sc <- caNRD_editQTL(bulk, G, p, th, 0, pairs = pairs, coverage = cov, engine = "scan", refine = NULL)
+  sr <- caNRD_editQTL(bulk, G, p, th, 0, pairs = pairs, coverage = cov, engine = "scan")
+  expect_identical(sc$status, ex$status)
+  expect_gt(stats::cor(sc$beta, ex$beta, use = "complete.obs"), 0.99)
+  expect_true(all(sr$refined[sr$p < 1e-3 & !is.na(sr$p)]))
+  rr <- sr$refined; expect_equal(sr$beta[rr], ex$beta[rr], tolerance = 1e-8)
+  expect_false(is.null(attr(caNRD_editQTL(bulk, G, p, th, 0, pairs = pairs, coverage = cov, engine = "scan", vcov = "beta"), "coef_cov")))
+})
+
+test_that("scan engine rejects non-finite / out-of-range genotypes like the exact engine", {
+  set.seed(2); n <- 200
+  p <- matrix(stats::rgamma(n * 2, 5), n, 2, dimnames = list(paste0("s", 1:n), c("A", "B"))); p <- p / rowSums(p)
+  g <- matrix(stats::rbinom(2 * n, 2, 0.3), 2, n, dimnames = list(c("v1", "v2"), rownames(p))); g[1, 3] <- Inf
+  y <- matrix(stats::runif(n, 0.05, 0.2), 1, n, dimnames = list("site1", rownames(p))); th <- matrix(1, 1, 2, dimnames = list("site1", c("A", "B")))
+  expect_error(caNRD_editQTL(y, g, p, th, 0, engine = "scan"), "dosages")
+})

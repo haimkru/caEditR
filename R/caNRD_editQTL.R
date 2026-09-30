@@ -63,8 +63,19 @@
 #'   simulation; results agree with `"reference"` to ~1e-4 in beta, never at a lower likelihood on the same objective).
 #'   Pairs it cannot handle (a single identifiable cell type, exactly aliased designs, Newton non-convergence) are
 #'   computed by the reference engine. `"reference"`: L-BFGS-B per pair (slow; kept for validation).
-#' @param ... tuning arguments of the fast engine: `chunk_size`, `newton_tol`, `max_newton`, `fallback_vif`,
-#'   `exact_hessian`, `newton_quick_tol`, `verbose`.
+#'   `"scan"`: for genome-wide cis scans (many variants per site). Per site the variance components are estimated once
+#'   from the genotype-free model; every variant is then tested by GLS at that fixed variance, batched over variants
+#'   (tensorQTL/EMMAX-style; ~0.5-1 ms per pair at 1,000 donors, vs ~50 ms with "fast"). For these pairs `p` is the
+#'   per-cell-type Wald test at the fixed null variance and `p_site` the K-df Wald test. Pairs with min(p, p_site) below
+#'   `refine` (default 1e-3) are re-fitted with the exact "fast" engine and flagged `refined = TRUE` (their rows are the
+#'   exact results). In simulation the scan was calibrated (per-test FPR 0.049 at 0.05, 0.0011 at 0.001), had the same
+#'   wrong-cell-type rate as the exact engine, and with refinement the same power; without refinement it loses power at
+#'   strong effects because the fixed null variance absorbs part of the effect. Adds column `refined`; with
+#'   `vcov = "beta"` or `"mu_beta"` also the attribute `"coef_cov"` (per-pair coefficient covariances; off by default
+#'   because it is large for many pairs). Sites whose genotype-free fit fails are computed with the exact engine.
+#' @param ... tuning arguments of the fast engine (`chunk_size`, `newton_tol`, `max_newton`, `fallback_vif`,
+#'   `exact_hessian`, `newton_quick_tol`, `verbose`) or of the scan engine (`refine`, `refine_args`, `vcov`,
+#'   `block_size`, `verbose`).
 #' @return data.frame, one row per (site, variant, cell type): `site_id`, `variant_id`, `celltype`, `status`
 #'   (`"tested"`, or why not: `not_identifiable`, `aliased`, `too_few_samples`, `monomorphic_variant`,
 #'   `too_few_minor_allele_samples`, `no_variation_in_bulk`, `fit_failed`), `beta`, `se`, `ci_low`, `ci_high`, `p` (cell-type LRT), `p_wald`, `p_site`
@@ -85,15 +96,20 @@
 caNRD_editQTL <- function(bulk_editing, genotypes, proportions, theta, theta_floor, pairs = NULL, coverage = NULL,
                           covariates = NULL, min_mean_phi = 0.10, floor_tol = NULL, min_samples = 30,
                           min_minor_allele_samples = 10, sigma2_floor = 1e-8, max_vif = 10, init = NULL,
-                          max_outer = 20, tol = 1e-7, engine = c("fast", "reference"), ...) {
+                          max_outer = 20, tol = 1e-7, engine = c("fast", "reference", "scan"), ...) {
   if (missing(theta_floor)) stop("theta_floor is required (e.g. 1e-3 for estimate_theta_nnls() output, 0 for true theta)", call. = FALSE)
   engine <- match.arg(engine)
+  if (engine == "scan")
+    return(.caNRD_editQTL_scan(bulk_editing, genotypes, proportions, theta, theta_floor, pairs = pairs, coverage = coverage,
+      covariates = covariates, min_mean_phi = min_mean_phi, floor_tol = floor_tol, min_samples = min_samples,
+      min_minor_allele_samples = min_minor_allele_samples, sigma2_floor = sigma2_floor, max_vif = max_vif, init = init,
+      max_outer = max_outer, tol = tol, ...))
   if (engine == "fast")
     return(.caNRD_editQTL_fast(bulk_editing, genotypes, proportions, theta, theta_floor, pairs = pairs, coverage = coverage,
                                covariates = covariates, min_mean_phi = min_mean_phi, floor_tol = floor_tol,
                                min_samples = min_samples, min_minor_allele_samples = min_minor_allele_samples,
                                sigma2_floor = sigma2_floor, max_vif = max_vif, init = init, max_outer = max_outer, tol = tol, ...))
-  if (...length()) stop("extra arguments (", paste(names(list(...)), collapse = ", "), ") are only used by engine = \"fast\"", call. = FALSE)
+  if (...length()) stop("extra arguments (", paste(names(list(...)), collapse = ", "), ") are only used by engine = \"fast\" or \"scan\"", call. = FALSE)
   bulk_editing <- as.matrix(bulk_editing); genotypes <- as.matrix(genotypes); proportions <- as.matrix(proportions)
   theta <- as.matrix(theta)
   for (nm in c("bulk_editing", "genotypes", "proportions")) {
