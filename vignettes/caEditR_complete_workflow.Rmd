@@ -180,7 +180,7 @@ it, the rest independent), realistic read depth, host genes not expressed in som
 in one cell type, a shared effect, or none:
 
 ```{r edqtl-cohort}
-eq <- simulate_edqtl_cohort(n_donors = 800, n_sites_per_type = 4, n_variants = 5, beta = 0.06, seed = 7)
+eq <- simulate_edqtl_cohort(n_donors = 1500, n_sites_per_type = 20, n_variants = 5, beta = 0.06, mean_coverage = 60, seed = 7)
 table(eq$truth$site_type)
 dim(eq$genotypes); head(eq$pairs, 3)
 summary(as.vector(eq$coverage))
@@ -239,7 +239,7 @@ Bootstrap fits (resampling donors) give parameter uncertainty for reconstruction
 
 ```{r bootstrap}
 boot <- caNRD_editQTL_bootstrap(eq$bulk_editing, eq$genotypes, eq$proportions, theta_eq, theta_floor = 1e-3,
-                                pairs = causal, coverage = eq$coverage, n_boot = 5, seed = 1)
+                                pairs = causal, coverage = eq$coverage, n_boot = 4, seed = 1)
 length(boot); sd(sapply(boot, function(f) f$beta[1]))
 ```
 
@@ -253,7 +253,7 @@ noisy betas would otherwise write into unaffected cell types. The discovery resu
 
 ```{r reconstruct}
 shrunk <- caNRD_editQTL_shrink(r_fast, eq$bulk_editing, eq$genotypes, eq$proportions, theta_eq, theta_floor = 1e-3,
-                               coverage = eq$coverage, min_sites = 10)
+                               coverage = eq$coverage)
 attr(shrunk, "prior")
 rec <- caNRD_joint_reconstruction(eq$bulk_editing, eq$genotypes, eq$proportions, theta_eq, theta_floor = 1e-3,
                                   fit = shrunk, coverage = eq$coverage, boot_fits = boot)
@@ -261,14 +261,20 @@ table(rec$diagnostics$status)
 plain <- caNRD_edit(eq$bulk_editing, eq$coverage, eq$proportions, theta_eq, theta_floor = 1e-3, iterative = TRUE)
 ```
 
-One Monocyte-only site: genetic slope per cell type in the truth, the plain caNRD matrix and the genotype-informed
-matrix (percentage points of editing per allele).
-This toy cohort has only a few sites per cell type, so the shrinkage prior (`attr(shrunk, "prior")`) is estimated
-from 13-23 sites and can shrink a real effect strongly; with genome-wide data (thousands of sites) it is estimated far
-better.
+The shrinkage prior is learned from all sites together: per cell type, the fraction of sites with no effect (`pi0`)
+and the typical size of real effects (`t2`). It needs many sites to be reliable (here 73-97 per cell type; genome-wide
+data has thousands); with only a handful of sites it can mis-shrink real effects.
+
+One Monocyte-only site, chosen by a stated rule (as one would pick an example in real data): among Monocyte-only sites
+whose host gene is expressed in every cell type, the one with the strongest Monocyte evidence in the joint fit
+(smallest `p`). Genetic slope per cell type in the truth, the plain caNRD matrix and the genotype-informed matrix
+(percentage points of editing per allele):
 
 ```{r one-site}
-site <- names(eq$truth$site_type)[eq$truth$site_type == "only_Monocytes"][1]
+mono <- names(eq$truth$site_type)[eq$truth$site_type == "only_Monocytes" & rowSums(eq$theta > 0) == ncol(eq$theta)]
+fm <- r_fast[r_fast$site_id %in% mono & r_fast$celltype == "Monocytes", ]
+site <- fm$site_id[which.min(fm$p)]
+c(site = site, monocyte_p = signif(min(fm$p, na.rm = TRUE), 2))
 g <- eq$genotypes[eq$truth$causal_variant[site], ]
 slope <- function(z) if (all(is.na(z))) NA_real_ else 100 * stats::coef(stats::lm(z ~ g))[2]
 data.frame(celltype = colnames(eq$proportions),
