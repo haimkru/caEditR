@@ -9,7 +9,7 @@ binomial_tau2(e_bulk, coverage, floor = 1e-06)
 \arguments{
 \item{e_bulk}{observed bulk editing ratio(s) in [0,1] (scalar or vector).}
 
-\item{coverage}{total read depth(s), > 0 (recycled with \code{e_bulk}).}
+\item{coverage}{total read depth(s), > 0 (recycled with \code{e_bulk}; NA gives NA).}
 
 \item{floor}{minimum variance returned (default 1e-6).}
 }

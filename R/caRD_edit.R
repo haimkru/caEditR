@@ -93,9 +93,10 @@ caRD_edit <- function(bulk_editing, coverage = NULL, proportions, reference, min
   if (is.null(site_ids)) stop("bulk_editing must have row names (site ids)", call. = FALSE)
   if (is.null(sample_ids)) stop("bulk_editing must have column names (sample ids)", call. = FALSE)
   if (is.null(celltypes)) stop("proportions must have column names (cell type names)", call. = FALSE)
-  # Fail fast on the same precondition caRDv0_edit() enforces (missing
-  # BOTH coverage and expression), before doing any gating work.
-  invisible(.resolve_coverage(bulk_editing, coverage, expression, genome, coverage_scale, unmapped_floor))
+  # Resolve coverage once (fails fast when BOTH coverage and expression are
+  # missing) and align it to bulk_editing by site and sample id.
+  coverage <- .align_coverage(.resolve_coverage(bulk_editing, coverage, expression, genome, coverage_scale, unmapped_floor),
+                              site_ids, sample_ids)
 
   mu <- .align_celltypes(.align_sites(reference$mu, site_ids, "reference$mu"), celltypes, "reference$mu")
   sigma2 <- .align_celltypes(.align_sites(reference$sigma2, site_ids, "reference$sigma2"), celltypes, "reference$sigma2")
@@ -105,6 +106,11 @@ caRD_edit <- function(bulk_editing, coverage = NULL, proportions, reference, min
   if (is.null(theta_floor)) {
     tab <- table(theta)
     theta_floor <- as.numeric(names(tab)[which.max(tab)])
+    if (max(tab) < 0.05 * length(theta)) {                              # no value is common enough to be a floor
+      message(sprintf("%s(): no theta_floor detected (the most common theta value covers only %.1f%% of entries); using theta_floor = 0.",
+                      "caRD_edit", 100 * max(tab) / length(theta)))
+      theta_floor <- 0; tab <- c(`0` = sum(theta == 0))
+    }
     message(sprintf(
       "caRD_edit(): auto-detected theta_floor=%.6g (%.1f%% of all theta entries sit exactly there).",
       theta_floor, 100 * max(tab) / length(theta)
@@ -165,13 +171,11 @@ caRD_edit <- function(bulk_editing, coverage = NULL, proportions, reference, min
         theta = theta[group_sites, keep_ct, drop = FALSE]
       )
       bulk_sub <- bulk_editing[group_sites, , drop = FALSE]
-      coverage_sub <- if (!is.null(coverage)) coverage[group_sites, , drop = FALSE] else NULL
+      coverage_sub <- coverage[group_sites, , drop = FALSE]
 
       fit <- caRDv0_edit(
         bulk_editing = bulk_sub, coverage = coverage_sub, proportions = proportions_sub,
-        reference = reference_sub, min_coverage = min_coverage,
-        expression = expression, genome = genome, coverage_scale = coverage_scale,
-        unmapped_floor = unmapped_floor
+        reference = reference_sub, min_coverage = min_coverage
       )
 
       for (ct in keep_ct) deconvolved[[ct]][group_sites, ] <- fit$deconvolved[[ct]]

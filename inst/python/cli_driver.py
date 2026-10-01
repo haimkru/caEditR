@@ -124,7 +124,7 @@ def op_canrd_edit_full(e_bulk, coverage, p, theta, min_coverage=10.0,
         e_bulk_s = e_bulk[s, :]
         cov_s = coverage[s, :]
         theta_s = theta[s, :]
-        usable = cov_s > 0
+        usable = np.isfinite(e_bulk_s) & np.isfinite(cov_s) & (cov_s > 0)
         if usable.sum() < n_celltypes:
             diagnostics.append({"site_index": s, "n_to_c_ratio": None, "marginal_n": None,
                                  "condition_number": None, "n_usable_samples": int(usable.sum()),
@@ -161,6 +161,8 @@ def op_canrd_edit_full(e_bulk, coverage, p, theta, min_coverage=10.0,
             "condition_number": fit["condition_number"], "n_usable_samples": int(usable.sum()), "status": "ok",
         })
 
+    # NaN (no estimate) is not valid JSON; write it as null (read back as NA)
+    e_hat = np.where(np.isfinite(e_hat), e_hat, None)
     return {"e_hat": e_hat.tolist(), "low_coverage": low_coverage.tolist(), "diagnostics": diagnostics}
 
 
@@ -290,6 +292,17 @@ _OPS = {
 }
 
 
+def _json_safe(x):
+    """Replace non-finite floats (NaN/Inf, not valid JSON) by None, recursively; R reads them back as NA."""
+    if isinstance(x, float):
+        return x if np.isfinite(x) else None
+    if isinstance(x, dict):
+        return {k: _json_safe(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_json_safe(v) for v in x]
+    return x
+
+
 def main():
     if len(sys.argv) != 4:
         print("Usage: python cli_driver.py <op> <input.json> <output.json>", file=sys.stderr)
@@ -302,7 +315,7 @@ def main():
             raise ValueError(f"unknown op {op_name!r}; available: {sorted(_OPS)}")
         result = _OPS[op_name](**kwargs)
         with open(output_path, "w") as f:
-            json.dump(result, f)
+            json.dump(_json_safe(result), f, allow_nan=False)
     except Exception:
         with open(output_path, "w") as f:
             json.dump({"error": traceback.format_exc()}, f)

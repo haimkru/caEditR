@@ -159,7 +159,7 @@
       ok <- ok & rowSums(Pm[, ident, drop = FALSE]) > 0
       pp <- Pm[ok, ident, drop = FALSE]
       w <- sweep(pp / rowSums(pp), 2, th[ident], `*`); phi <- w / rowSums(w)
-      keep <- colMeans(phi) >= min_mean_phi
+      keep <- if (nrow(phi)) colMeans(phi) >= min_mean_phi else rep(FALSE, ncol(phi))   # no usable donor -> not identifiable
       if (!any(keep)) ident <- character(0)
       else if (!all(keep)) {
         ident <- ident[keep]

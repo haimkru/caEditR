@@ -132,7 +132,8 @@ caNRDv0_edit <- function(bulk_editing, coverage = NULL, proportions, theta, min_
   if (is.null(site_ids)) stop("bulk_editing must have row names (site ids)", call. = FALSE)
   if (is.null(sample_ids)) stop("bulk_editing must have column names (sample ids)", call. = FALSE)
   if (is.null(celltypes)) stop("proportions must have column names (cell type names)", call. = FALSE)
-  coverage <- .resolve_coverage(bulk_editing, coverage, expression, genome, coverage_scale, unmapped_floor)
+  coverage <- .align_coverage(.resolve_coverage(bulk_editing, coverage, expression, genome, coverage_scale, unmapped_floor),
+                              site_ids, sample_ids)
 
   theta <- .align_celltypes(.align_sites(theta, site_ids, "theta"), celltypes, "theta")
   p <- .align_celltypes(proportions[sample_ids, , drop = FALSE], celltypes, "proportions")

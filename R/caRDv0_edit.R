@@ -84,7 +84,8 @@ caRDv0_edit <- function(bulk_editing, coverage = NULL, proportions, reference, m
   if (is.null(site_ids)) stop("bulk_editing must have row names (site ids)", call. = FALSE)
   if (is.null(sample_ids)) stop("bulk_editing must have column names (sample ids)", call. = FALSE)
   if (is.null(celltypes)) stop("proportions must have column names (cell type names)", call. = FALSE)
-  coverage <- .resolve_coverage(bulk_editing, coverage, expression, genome, coverage_scale, unmapped_floor)
+  coverage <- .align_coverage(.resolve_coverage(bulk_editing, coverage, expression, genome, coverage_scale, unmapped_floor),
+                              site_ids, sample_ids)
 
   mu <- .align_celltypes(.align_sites(reference$mu, site_ids, "reference$mu"), celltypes, "reference$mu")
   sigma2 <- .align_celltypes(.align_sites(reference$sigma2, site_ids, "reference$sigma2"), celltypes, "reference$sigma2")

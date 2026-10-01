@@ -78,7 +78,7 @@ Pairs it cannot handle (a single identifiable cell type, exactly aliased designs
 computed by the reference engine. \code{"reference"}: L-BFGS-B per pair (slow; kept for validation).
 \code{"scan"}: for genome-wide cis scans (many variants per site). Per site the variance components are estimated once
 from the genotype-free model; every variant is then tested by GLS at that fixed variance, batched over variants
-(tensorQTL/EMMAX-style; ~0.5-1 ms per pair at 1,000 donors, vs ~50 ms with "fast"). For these pairs \code{p} is the
+(tensorQTL/EMMAX-style; at 700 donors about 40 ms per site for the genotype-free fit plus ~0.1-0.2 ms per pair, vs ~50 ms per pair with "fast"; \code{refine = "lead"} adds ~0.1 s per site). For these pairs \code{p} is the
 per-cell-type Wald test at the fixed null variance and \code{p_site} the K-df Wald test. With \code{refine = "lead"} (default)
 the lead variant of each site (smallest \code{p_site}) is re-fitted with the exact "fast" engine, as tensorQTL treats
 the top variant per phenotype specially; \verb{refine = <p>} re-fits every pair with min(p, p_site) below the threshold
@@ -90,7 +90,9 @@ because it is large for many pairs). Sites whose genotype-free fit fails are com
 
 \item{...}{tuning arguments of the fast engine (\code{chunk_size}, \code{newton_tol}, \code{max_newton}, \code{fallback_vif},
 \code{exact_hessian}, \code{newton_quick_tol}, \code{verbose}) or of the scan engine (\code{refine}, \code{refine_args}, \code{vcov},
-\code{block_size}, \code{verbose}).}
+\code{block_size}, \code{impute_genotypes}, \code{verbose}). Scan engine and missing genotypes: by default (\code{impute_genotypes = "none"}) a variant with any missing dosage gets its own genotype-free fit on its non-missing donors (exact, but
+about as slow as the fast engine for that pair); \code{impute_genotypes = "mean"} replaces missing dosages by the
+variant's mean over the analysed donors (as tensorQTL does), keeping the scan's speed.}
 }
 \value{
 data.frame, one row per (site, variant, cell type): \code{site_id}, \code{variant_id}, \code{celltype}, \code{status}

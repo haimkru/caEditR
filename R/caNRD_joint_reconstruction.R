@@ -249,8 +249,8 @@ caNRD_joint_reconstruction <- function(bulk_editing, genotypes, proportions, the
         pf <- phi_for(J, TH[gi, , drop = FALSE])
         ok0 <- okb[gi, , drop = FALSE] & rep(pf$rs_pos, each = length(gi))
         nok <- rowSums(ok0)
-        if (any(nok == 0)) stop("missing value where TRUE/FALSE needed (site ", sites[ks[gi[nok == 0][1]]], " has no usable sample)", call. = FALSE)
         keep <- do.call(cbind, lapply(pf$phi, function(p) { p[!ok0] <- 0; rowSums(p) / nok })) >= min_mean_phi
+        keep[nok == 0, ] <- FALSE                                        # no usable donor -> not identifiable
         I1[gi, J] <- keep
         none <- rowSums(keep) == 0
         if (any(none)) { d_status[ks[gi[none]]] <- "not_identifiable"; d_ns[ks[gi[none]]] <- nok[none]; d_nct[ks[gi[none]]] <- 0L }

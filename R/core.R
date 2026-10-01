@@ -19,6 +19,7 @@ compute_effective_weights <- function(p, theta, mode = c("phi", "proportion")) {
   P <- if (is.matrix(p)) p else matrix(p, nrow = 1)
   Th <- if (is.matrix(theta)) theta else matrix(theta, nrow(P), length(theta), byrow = TRUE)
   if (!identical(dim(Th), dim(P))) stop("p and theta must have the same shape (theta: one value per cell type, or a matrix like p)", call. = FALSE)
+  if (any(P < 0, na.rm = TRUE) || any(Th < 0, na.rm = TRUE)) stop("p and theta must be non-negative", call. = FALSE)
   raw <- if (mode == "phi") P * Th else P
   tot <- rowSums(raw)
   if (any(!(tot > 0))) stop("effective weights sum to zero; check p and theta are non-negative and not all zero", call. = FALSE)
@@ -33,7 +34,7 @@ compute_effective_weights <- function(p, theta, mode = c("phi", "proportion")) {
 #' ratio measured from a finite number of reads.
 #'
 #' @param e_bulk observed bulk editing ratio(s) in \[0,1\] (scalar or vector).
-#' @param coverage total read depth(s), > 0 (recycled with `e_bulk`).
+#' @param coverage total read depth(s), > 0 (recycled with `e_bulk`; NA gives NA).
 #' @param floor minimum variance returned (default 1e-6).
 #' @return numeric, tau2 (same length as the recycled inputs).
 #' @examples
@@ -41,7 +42,9 @@ compute_effective_weights <- function(p, theta, mode = c("phi", "proportion")) {
 #' @export
 binomial_tau2 <- function(e_bulk, coverage, floor = 1e-6) {
   # pure-R, vectorised version of core.binomial_tau2 (same rule; recycled over e_bulk / coverage)
-  if (any(!(coverage > 0), na.rm = TRUE) || anyNA(coverage)) stop("coverage must be positive", call. = FALSE)
+  n <- max(length(e_bulk), length(coverage))
+  if (n %% length(e_bulk) || n %% length(coverage)) stop("e_bulk and coverage lengths must be equal, or one a multiple of the other", call. = FALSE)
+  if (any(!(coverage > 0), na.rm = TRUE)) stop("coverage must be positive", call. = FALSE)
   e <- pmin(pmax(e_bulk, 0), 1)
   pmax(e * (1 - e) / coverage, floor)
 }

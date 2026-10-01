@@ -95,7 +95,11 @@ caNRD_editQTL_shrink <- function(fit, bulk_editing, genotypes, proportions, thet
   prior <- do.call(rbind, lapply(seq_along(celltypes), function(h) {
     bb <- unlist(lapply(res, function(r) if (h %in% r$J) r$bh[, match(h, r$J)])); ss <- unlist(lapply(res, function(r) if (h %in% r$J) matrix(r$se, ncol = length(r$J), byrow = TRUE)[, match(h, r$J)]))
     okk <- is.finite(bb) & is.finite(ss) & ss > 0
-    if (sum(okk) < min_sites) return(data.frame(celltype = celltypes[h], pi0 = NA_real_, t2 = NA_real_, n_sites = sum(okk)))
+    if (sum(okk) < min_sites) {
+      warning(sprintf("caNRD_editQTL_shrink(): %s has %d tested sites (< min_sites = %d); its betas are left unshrunk",
+                      celltypes[h], sum(okk), min_sites), call. = FALSE)
+      return(data.frame(celltype = celltypes[h], pi0 = NA_real_, t2 = NA_real_, n_sites = sum(okk)))
+    }
     pr <- pn_fit(bb[okk], ss[okk]); data.frame(celltype = celltypes[h], pi0 = pr[["pi0"]], t2 = pr[["t2"]], n_sites = sum(okk))
   }))
   # ---- batched multivariate posterior means ----

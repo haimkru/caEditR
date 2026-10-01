@@ -113,7 +113,7 @@ celltype_edqtl <- function(bulk_editing, genotypes, proportions, theta, theta_fl
       pp <- proportions[samples, ident, drop = FALSE][ok, , drop = FALSE]
       w <- sweep(pp / rowSums(pp), 2, th[ident], `*`)
       phi <- w / rowSums(w)
-      keep <- colMeans(phi) >= min_mean_phi
+      keep <- if (nrow(phi)) colMeans(phi) >= min_mean_phi else rep(FALSE, ncol(phi))   # no usable donor -> not identifiable
       if (any(!keep) && any(keep)) {
         ident <- ident[keep]
         pp <- proportions[samples, ident, drop = FALSE][ok, , drop = FALSE]

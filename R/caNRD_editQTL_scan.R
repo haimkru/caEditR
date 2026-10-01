@@ -40,9 +40,10 @@
                                covariates = NULL, min_mean_phi = 0.10, floor_tol = NULL, min_samples = 30,
                                min_minor_allele_samples = 10, sigma2_floor = 1e-8, max_vif = 10, init = NULL,
                                max_outer = 20, tol = 1e-7, refine = "lead", refine_args = list(),
-                               vcov = c("none", "beta", "mu_beta"), block_size = NULL, verbose = FALSE) {
+                               vcov = c("none", "beta", "mu_beta"), block_size = NULL,
+                               impute_genotypes = c("none", "mean"), verbose = FALSE) {
   if (missing(theta_floor)) stop("theta_floor is required (e.g. 1e-3 for estimate_theta_nnls() output, 0 for true theta)", call. = FALSE)
-  vcov <- match.arg(vcov)
+  vcov <- match.arg(vcov); impute_genotypes <- match.arg(impute_genotypes)
   if (!is.null(refine) && !identical(refine, "lead") && !(is.numeric(refine) && length(refine) == 1 && refine > 0 && refine <= 1))
     stop("refine must be \"lead\", NULL or a single p-value threshold in (0, 1]", call. = FALSE)
   bulk_in <- bulk_editing; geno_in <- genotypes; cov_in <- coverage; covar_in <- covariates; init_in <- init
@@ -79,6 +80,20 @@
   }
   if (!is.null(covariates)) samples <- intersect(samples, rownames(covariates))
   if (length(samples) < min_samples) stop("fewer than min_samples samples shared by bulk_editing, genotypes and proportions", call. = FALSE)
+  if (impute_genotypes == "mean") {                                       # tensorQTL-style: missing dosage -> variant mean
+    jS <- match(samples, colnames(genotypes))
+    rU <- match(unique(as.character(if (is.null(pairs)) rownames(genotypes) else pairs$variant_id)), rownames(genotypes))
+    rU <- rU[!is.na(rU)]
+    if (length(rU)) {
+      sub <- genotypes[rU, jS, drop = FALSE]; nas <- which(rowSums(is.na(sub)) > 0)
+      if (length(nas)) {
+        for (r in nas) { g <- sub[r, ]; g[is.na(g)] <- mean(g, na.rm = TRUE); sub[r, ] <- g }
+        genotypes[rU[nas], jS] <- sub[nas, , drop = FALSE]
+      }
+      rm(sub)
+    }
+    geno_in <- genotypes
+  }
   if (is.null(pairs)) pairs <- expand.grid(site_id = rownames(bulk_editing), variant_id = rownames(genotypes), stringsAsFactors = FALSE)
   pairs <- as.data.frame(pairs, stringsAsFactors = FALSE)
   cov_mat <- if (!is.null(covariates)) scale(as.matrix(covariates)[samples, , drop = FALSE], scale = FALSE) else NULL
@@ -182,7 +197,7 @@
       ok <- ok & rowSums(Pm[, ident, drop = FALSE]) > 0
       pp <- Pm[ok, ident, drop = FALSE]
       w <- sweep(pp / rowSums(pp), 2, th[ident], `*`); phi <- w / rowSums(w)
-      keep <- colMeans(phi) >= min_mean_phi
+      keep <- if (nrow(phi)) colMeans(phi) >= min_mean_phi else rep(FALSE, ncol(phi))   # no usable donor -> not identifiable
       if (!any(keep)) ident <- character(0)
       else if (!all(keep)) {
         ident <- ident[keep]

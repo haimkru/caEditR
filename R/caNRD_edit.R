@@ -191,13 +191,20 @@ caNRD_edit <- function(bulk_editing, coverage = NULL, proportions, theta,
   if (is.null(theta_floor)) {
     tab <- table(theta)
     theta_floor <- as.numeric(names(tab)[which.max(tab)])
+    if (max(tab) < 0.05 * length(theta)) {                              # no value is common enough to be a floor
+      message(sprintf("%s(): no theta_floor detected (the most common theta value covers only %.1f%% of entries); using theta_floor = 0.",
+                      "caNRD_edit", 100 * max(tab) / length(theta)))
+      theta_floor <- 0; tab <- c(`0` = sum(theta == 0))
+    }
     message(sprintf(
       "caNRD_edit(): auto-detected theta_floor=%.6g (%.1f%% of all theta entries sit exactly there).",
       theta_floor, 100 * max(tab) / length(theta)
     ))
   }
   if (is.null(floor_tol)) floor_tol <- min(1e-9, theta_floor / 1e6)
-  cov_res <- if (estimator == "ml") .resolve_coverage(bulk_editing, coverage, expression, genome, coverage_scale, unmapped_floor)[site_ids, sample_ids, drop = FALSE] else NULL
+  # coverage resolved once and aligned to bulk_editing by site and sample id (both estimators use it as is)
+  coverage <- .align_coverage(.resolve_coverage(bulk_editing, coverage, expression, genome, coverage_scale, unmapped_floor),
+                              site_ids, sample_ids)
 
   identifiable <- theta > (theta_floor + floor_tol)
 
@@ -264,21 +271,15 @@ caNRD_edit <- function(bulk_editing, coverage = NULL, proportions, theta,
       proportions_sub <- .safe_row_normalize(proportions[, keep_ct, drop = FALSE])
       theta_sub <- theta[group_sites, keep_ct, drop = FALSE]
       bulk_sub <- bulk_editing[group_sites, , drop = FALSE]
-      coverage_sub <- if (!is.null(coverage)) coverage[group_sites, , drop = FALSE] else NULL
+      coverage_sub <- coverage[group_sites, , drop = FALSE]
 
-      fit <- caNRDv0_edit(
-        bulk_editing = bulk_sub, coverage = coverage_sub, proportions = proportions_sub,
-        theta = theta_sub, min_coverage = min_coverage, iterative = iterative,
-        expression = expression, genome = genome, coverage_scale = coverage_scale,
-        unmapped_floor = unmapped_floor, ...
-      )
-
-      if (estimator == "ml") {                                          # variance-fixed ML estimates replace the moment ones
-        ml <- .canrd_ml_group(bulk_sub, cov_res[group_sites, , drop = FALSE], proportions_sub, theta_sub, min_coverage)
-        for (ct in keep_ct) fit$deconvolved[[ct]][group_sites, ] <- ml$deconvolved[[ct]]
+      fit <- if (estimator == "ml") {                                   # variance-fixed ML, entirely in R
+        .canrd_ml_group(bulk_sub, coverage_sub, proportions_sub, theta_sub, min_coverage)
+      } else {
+        caNRDv0_edit(bulk_editing = bulk_sub, coverage = coverage_sub, proportions = proportions_sub,
+                     theta = theta_sub, min_coverage = min_coverage, iterative = iterative, ...)
       }
       diag_sub <- fit$diagnostics
-      if (estimator == "ml" && length(ml$failed)) diag_sub$status[diag_sub$site_id %in% ml$failed] <- "ml_fit_failed"
       diag_sub$n_identifiable_celltypes <- length(keep_ct)
       diag_sub$excluded_celltypes <- paste(excluded_ct, collapse = ",")
 
@@ -287,7 +288,7 @@ caNRD_edit <- function(bulk_editing, coverage = NULL, proportions, theta,
       # badly imbalanced at a site. Sites whose REDUCED system is still
       # unstable get NA'd here too, instead of being trusted just because
       # they passed the floor check.
-      still_unstable <- diag_sub$site_id[diag_sub$condition_number > max_condition_number]
+      still_unstable <- diag_sub$site_id[which(diag_sub$condition_number > max_condition_number)]
       diag_sub$status[diag_sub$site_id %in% still_unstable] <- "reduced_system_still_unstable"
       stable_sites <- setdiff(group_sites, still_unstable)
 
@@ -334,36 +335,57 @@ caNRD_edit <- function(bulk_editing, coverage = NULL, proportions, theta,
 
 # Variance-fixed maximum-likelihood caNRD for a group of sites sharing their identifiable cell types: per site, fit
 # mu, sigma2 and tau2_0 of y ~ N(phi mu, phi^2 sigma2 + tau2_0 + tau2), tau2 = binomial from the fitted mean (outer
-# loop), on donors with coverage >= min_coverage, using the batched solver of caNRD_editQTL's scan engine; then the
-# posterior mean for every donor with a finite bulk value and coverage.
+# loop), on donors with a finite bulk value and coverage >= min_coverage, using the batched solver of caNRD_editQTL's
+# scan engine; then the posterior mean for every donor with a finite bulk value and coverage > 0. Returns the same
+# structure as caNRDv0_edit(): deconvolved, low_coverage and diagnostics (condition_number = 2-norm condition number
+# of phi' V^-1 phi at the fitted V, the analogue of the moment fit's weighted normal-equations matrix).
 .canrd_ml_group <- function(Y, CV, P, TH, min_coverage) {
-  K <- ncol(P); cts <- colnames(P); sites <- rownames(Y)
+  K <- ncol(P); cts <- colnames(P); sites <- rownames(Y); S <- length(sites)
   out <- stats::setNames(lapply(cts, function(h) matrix(NA_real_, nrow(Y), ncol(Y), dimnames = dimnames(Y))), cts)
-  PR <- vector("list", length(sites)); PH <- vector("list", length(sites)); use <- logical(length(sites))
-  for (k in seq_along(sites)) {
+  PR <- vector("list", S); PH <- vector("list", S); use <- logical(S); n_use <- integer(S)
+  for (k in seq_len(S)) {
     W <- sweep(P, 2, TH[k, ], `*`); phi <- .safe_row_normalize(W); PH[[k]] <- phi
     ok <- is.finite(Y[k, ]) & is.finite(CV[k, ]) & CV[k, ] >= min_coverage
-    if (sum(ok) < K + 2) next
+    n_use[k] <- sum(ok)
+    if (n_use[k] < K + 2) next
     cv <- pmax(unname(CV[k, ok]), 1)
     PR[[k]] <- list(yy = unname(Y[k, ok]), phiu = unname(phi[ok, , drop = FALSE]), Cm = NULL, cv = cv, eps = 0.5 / cv, s2i = NULL)
     use[k] <- TRUE
   }
-  NF <- vector("list", length(sites))
+  NF <- vector("list", S)
   if (any(use)) NF[use] <- .sc_null_fit_many(PR[use], FALSE, 1e-8, 20, 1e-7)
-  failed <- character(0)
-  for (k in seq_along(sites)) {
-    nf <- NF[[k]]; if (!use[k] || is.null(nf)) { failed <- c(failed, sites[k]); next }
-    x <- PR[[k]]; w <- 1 / nf$V
-    b <- tryCatch(as.numeric(solve(crossprod(x$phiu * w, x$phiu), crossprod(x$phiu * w, x$yy))), error = function(e) NULL)
-    if (is.null(b)) { failed <- c(failed, sites[k]); next }
+  status <- ifelse(use, "ok", "skipped: fewer usable samples than cell types"); kappa_ <- rep(NA_real_, S)
+  for (k in which(use)) {
+    nf <- NF[[k]]; if (is.null(nf)) { status[k] <- "ml_fit_failed"; next }
+    s2 <- nf$sigma2; t20 <- nf$tau2_0
+    # one cell type: phi = 1, the likelihood depends on sigma2 + tau2_0 only -> attribute all of it to the cell type
+    if (K == 1) { s2 <- s2 + t20; t20 <- 0 }
+    x <- PR[[k]]; w <- 1 / nf$V; A0 <- crossprod(x$phiu * w, x$phiu)
+    b <- tryCatch(as.numeric(solve(A0, crossprod(x$phiu * w, x$yy))), error = function(e) NULL)
+    if (is.null(b) || !all(is.finite(b))) { status[k] <- "ml_fit_failed"; next }
+    kappa_[k] <- kappa(A0, exact = TRUE)
     rec <- is.finite(Y[k, ]) & is.finite(CV[k, ]) & CV[k, ] > 0
     phi <- PH[[k]][rec, , drop = FALSE]; cv <- pmax(CV[k, rec], 1); m <- as.numeric(phi %*% b)
     mc <- pmin(pmax(m, 0.5 / cv), 1 - 0.5 / cv); tau2 <- pmax(mc * (1 - mc) / cv, 1e-10)
-    A <- sweep(phi, 2, nf$sigma2, `*`); den <- rowSums(A * phi) + nf$tau2_0 + tau2
+    A <- sweep(phi, 2, s2, `*`); den <- rowSums(A * phi) + t20 + tau2
     z <- sweep(A, 1, (Y[k, rec] - m) / den, `*`) + matrix(b, nrow(A), K, byrow = TRUE)
     for (j in seq_len(K)) out[[cts[j]]][k, rec] <- z[, j]
   }
-  list(deconvolved = out, failed = failed)
+  low_cov <- !is.finite(CV) | CV < min_coverage
+  diagnostics <- data.frame(site_id = sites, n_to_c_ratio = n_use / K, marginal_n = n_use / K < 3,
+                            condition_number = kappa_, n_usable_samples = n_use, status = status, stringsAsFactors = FALSE)
+  list(deconvolved = out, low_coverage = low_cov, diagnostics = diagnostics)
+}
+
+# coverage as a sites x samples matrix aligned to (site_ids, sample_ids) by name
+.align_coverage <- function(coverage, site_ids, sample_ids) {
+  coverage <- as.matrix(coverage)
+  if (is.null(rownames(coverage)) || is.null(colnames(coverage)))
+    stop("coverage must have row names (site ids) and column names (sample ids)", call. = FALSE)
+  ms <- setdiff(site_ids, rownames(coverage)); mi <- setdiff(sample_ids, colnames(coverage))
+  if (length(ms)) stop(sprintf("coverage is missing %d site(s) of bulk_editing, e.g. %s", length(ms), ms[1]), call. = FALSE)
+  if (length(mi)) stop(sprintf("coverage is missing %d sample(s) of bulk_editing, e.g. %s", length(mi), mi[1]), call. = FALSE)
+  coverage[site_ids, sample_ids, drop = FALSE]
 }
 
 #' Renormalize matrix rows to sum to one, without dividing by zero.
