@@ -17,11 +17,11 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Haim Krupkin+Claude \email{haim.krupkin@gmail.com}
+\strong{Maintainer}: Haim Krupkin+Claude \email{hkrupkin@stanford.edu}
 
 Authors:
 \itemize{
-  \item Haim Krupkin+Claude \email{haim.krupkin@gmail.com}
+  \item Haim Krupkin+Claude \email{hkrupkin@stanford.edu}
 }
 
 }

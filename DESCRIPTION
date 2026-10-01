@@ -1,7 +1,7 @@
 Package: caEditR
 Title: Cell-Type-Resolved RNA-Editing Deconvolution and Cell-Type Editing QTLs
 Version: 0.99.3
-Authors@R: person("Haim Krupkin+Claude", role = c("aut", "cre"), email = "haim.krupkin@gmail.com")
+Authors@R: person("Haim Krupkin+Claude", role = c("aut", "cre"), email = "hkrupkin@stanford.edu")
 Description: Deconvolves bulk RNA-editing-ratio matrices (sites x samples)
     into per-cell-type editing estimates, using each sample's cell-type
     proportions and each site's host-gene expression per cell type (RNA
