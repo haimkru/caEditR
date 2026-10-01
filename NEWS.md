@@ -2,9 +2,17 @@
 
 * `caNRD_edit()` now uses the variance-fixed maximum-likelihood estimator (`estimator = "ml"`, default): read-sampling
   variance from the model-predicted bulk level, ML variance components. Removes the previous estimator's downward
-  bias at low-read donors and matches oracle accuracy in simulation. The previous default is kept as
-  `caNRDv0.5_edit()` (= `caNRD_edit(estimator = "moment")`); the `caNRDv2_edit()` alias points to it.
-* Help pages: fixed unescaped `%` that broke the parsing of several caNRD_edit / caRD_edit arguments.
+  bias at low-read donors (in the vignette cohort: bias ~0 vs -0.4 to -0.7 pp, R squared within 0.006). The
+  ML path runs entirely in R (no Python call). The previous default is kept as `caNRDv0.5_edit()`
+  (= `caNRD_edit(estimator = "moment")`); the `caNRDv2_edit()` alias now points to it (it used to be an alias of
+  `caNRD_edit()`).
+* Robustness (pre-release review): NA editing / coverage no longer crash `caNRD_edit()`; coverage is aligned to
+  `bulk_editing` by sample id in all caRD / caNRD functions (it was taken by column position); a site with no usable
+  donor is `not_identifiable` instead of aborting `caNRD_editQTL()` / `celltype_edqtl()` /
+  `caNRD_joint_reconstruction()`; scan option `impute_genotypes = "mean"`; input checks in `binomial_tau2()` /
+  `compute_effective_weights()`; `theta_floor` auto-detection falls back to 0 on unfloored theta.
+* Help pages: roxygen markdown enabled (code and cross-links render); fixed escapes that broke several arguments;
+  genome-annotation examples run only when the annotation packages are installed.
 * New `simulate_edqtl_cohort()` (genotypes with causal / LD / independent variants, single-cell-type, shared and
   null sites, realistic coverage, unexpressed host genes, full truth) and `simulate_bulk_expression()`.
 * `binomial_tau2()` and `compute_effective_weights()` are now vectorised in R (no Python call; the latter accepts a
@@ -14,8 +22,8 @@
   per-variant K x K algebra; results identical to the R code (<= 5e-13). `refine = "lead"` (default) re-fits the lead
   variant of each site exactly. Genotype range checks no longer build temporary matrices.
 * `caNRD_editQTL(engine = "scan")`: genome-wide cis scans. Variance components once per site (batched over sites),
-  every variant tested by GLS at that fixed variance in batched matrix algebra; pairs with p < `refine` (default 1e-3)
-  re-fitted exactly (`refined = TRUE`); sites whose null fit fails go to the exact engine. Calibrated in simulation.
+  every variant tested by GLS at that fixed variance in batched matrix algebra; with `refine = "lead"` (default) the lead
+  variant of each site re-fitted exactly (`refined = TRUE`; or a p-value threshold); sites whose null fit fails go to the exact engine. Calibrated in simulation.
 * New `caNRD_editQTL_shrink()`: multivariate point-normal empirical-Bayes shrinkage of a `caNRD_editQTL()` fit for
   genotype-informed reconstruction (the benchmarked recommended setting); batched over sites (~1 ms/site).
 * `caNRD_joint_reconstruction()` is now vectorised over sites (fit indexed once; sites grouped by identifiable cell
@@ -24,7 +32,7 @@
 * New `caNRD_joint_reconstruction()`: genotype-informed caNRD reconstruction of cell-type editing. Cell-type means
   mu_h + G beta_h from a `caNRD_editQTL()` fit place each site's genetic signal in the cell types the joint model assigns
   it to before the residual bulk variation is allocated, which removes the genetic leakage of genotype-blind
-  reconstruction (simulation: 73-77% -> ~0).
+  reconstruction (simulation, against the earlier moment caNRD: 73-77% -> ~0).
 * New `caNRD_editQTL()`: joint, likelihood-based cell-type edQTL test under caNRD's latent-editing model, following TCA's
   joint model (genotype as a cell-type-specific covariate) adapted to RNA editing: variance
   `sum_h phi^2 sigma2_h + binomial tau2_i (model-based) + scalar tau2_0`, ML nuisance variances re-estimated under every

@@ -24,7 +24,7 @@ per-cell-type per editing site RNA Editing estimates. Specifically, the suite ha
 
 1. **`caRD_edit()`** ;reference-based: needs a real sorted per cell type refrence of per cell type per site RNA editing levels.  it incorporates gene expression/site coverage to give better per cell type per RNA editing site estimates.
   
-2. **`caNRD_edit()`**; no-reference: self-estimates that reference using math similar to CIBERSOSRTx/TCA directly from the bulk cohort itself using Non-Negative Least Squares(NNLS). it incorporates gene expression/site coverage to give better per cell type per RNA editing site estimates.
+2. **`caNRD_edit()`**; no-reference: self-estimates that reference using math similar to CIBERSOSRTx/TCA directly from the bulk cohort itself, by maximum likelihood (`estimator = "moment"`, or `caNRDv0.5_edit()`, gives the earlier NNLS/method-of-moments version). it incorporates gene expression/site coverage to give better per cell type per RNA editing site estimates.
 
 3. **`TCA_Like()`**; no refrence: a thin wrapper around the real CRAN `TCA` package. no incoporation of gene expression/site coverage to give better per cell type per RNA editing site estimates.
 
@@ -361,8 +361,10 @@ out_card <- caRD_edit(real_bulk, real_coverage, real_proportions, real_reference
 # iterative=TRUE, ridge_frac=0.1 -- the exact configuration this project's own
 # validated real-data figure found necessary; real N=8 data is badly
 # ill-conditioned (median condition number ~1.7 MILLION unregularized).
+# estimator = "moment": this N=8 example uses the method-of-moments caNRD (ridge_frac applies to it);
+# with only 8 donors the default maximum-likelihood fit excludes far more estimates.
 out_canrd <- caNRD_edit(real_bulk, real_coverage, real_proportions, real_reference$theta,
-                         iterative = TRUE, ridge_frac = 0.1)
+                         iterative = TRUE, ridge_frac = 0.1, estimator = "moment")
 
 bulk_nz <- real_bulk[apply(real_bulk, 1, var) > 1e-8, , drop = FALSE]
 out_tca <- TCA_Like(bulk_nz, real_proportions)

@@ -172,7 +172,7 @@ round(par_s$mu_hat, 3); round(z_s, 3)
 model-predicted bulk level ("variance-fixed" caNRD). The previous estimator, which used each donor's observed ratio
 and is biased downward at low-read donors, is kept as `caNRDv0.5_edit()` (alias `caNRDv2_edit()`); `caNRDv0_edit()`
 is the original ungated version and `caRDv0_edit()` the original `caRD_edit()`. Comparing the two caNRD estimators
-against the truth on this cohort:
+against the truth on this cohort (the ML estimator removes the bias; R squared is about the same, slightly lower in some cell types):
 
 ```{r canrd-versions}
 out_v05 <- caNRDv0.5_edit(cohort$bulk_editing, cohort$coverage, cohort$proportions, theta_hat, theta_floor = 1e-3, iterative = TRUE)
@@ -251,7 +251,7 @@ Bootstrap fits (resampling donors) give parameter uncertainty for reconstruction
 
 ```{r bootstrap}
 boot <- caNRD_editQTL_bootstrap(eq$bulk_editing, eq$genotypes, eq$proportions, theta_eq, theta_floor = 1e-3,
-                                pairs = causal, coverage = eq$coverage, n_boot = 4, seed = 1)
+                                pairs = causal, coverage = eq$coverage, n_boot = 4, seed = 1)   # n_boot = 4 only to keep the vignette fast (default 50)
 length(boot); sd(sapply(boot, function(f) f$beta[1]))
 ```
 
@@ -259,9 +259,11 @@ length(boot); sd(sapply(boot, function(f) f$beta[1]))
 
 `caNRD_joint_reconstruction()` reconstructs per-donor cell-type editing like `caNRD_edit()`, but uses the joint
 genotype effects of a `caNRD_editQTL()` fit (one variant per site) so the genetic signal is placed in the cell type
-it belongs to before the remaining bulk signal is shared out. `caNRD_editQTL_shrink()` first shrinks the betas
-(multivariate point-normal empirical Bayes, the recommended setting), which reduces the false genetic structure that
-noisy betas would otherwise write into unaffected cell types. The discovery results (`r_fast`) are not modified.
+it belongs to before the remaining bulk signal is shared out. Without genotypes, `caNRD_edit()` shrinks every donor
+toward the cell-type mean and keeps only a small part of a genetic effect; the joint matrix keeps it, at the cost of
+noise of the size of the betas' standard errors in cell types without an effect. `caNRD_editQTL_shrink()` first
+shrinks the betas (multivariate point-normal empirical Bayes, the recommended setting), which reduces that noise. The
+discovery results (`r_fast`) are not modified.
 
 ```{r reconstruct}
 shrunk <- caNRD_editQTL_shrink(r_fast, eq$bulk_editing, eq$genotypes, eq$proportions, theta_eq, theta_floor = 1e-3,
@@ -274,10 +276,12 @@ plain <- caNRD_edit(eq$bulk_editing, eq$coverage, eq$proportions, theta_eq, thet
 ```
 
 The shrinkage prior is learned from all sites together: per cell type, the fraction of sites with no effect (`pi0`)
-and the typical size of real effects (`t2`). It needs many sites to be reliable (here 73-97 per cell type; genome-wide
-data has thousands); with only a handful of sites it can mis-shrink real effects.
+and the typical size of real effects (`t2`). It needs many sites to be reliable (here `r paste(range(attr(shrunk, "prior")$n_sites), collapse = "-")` per
+cell type, fewer than the hundreds or more it is meant for; genome-wide data has thousands); with only a handful of
+sites it can mis-shrink real effects.
 
-One Monocyte-only site, chosen by a stated rule (as one would pick an example in real data): among Monocyte-only sites
+One Monocyte-only site, chosen by a stated rule (the rule uses the simulated truth to pick the site type, and the smallest `p` is a
+best case, not a typical site): among Monocyte-only sites
 whose host gene is expressed in every cell type, the one with the strongest Monocyte evidence in the joint fit
 (smallest `p`). Genetic slope per cell type in the truth, the plain caNRD matrix and the genotype-informed matrix
 (percentage points of editing per allele):
@@ -298,7 +302,7 @@ data.frame(celltype = colnames(eq$proportions),
 
 Across all single-cell-type sites: how much of the true effect each matrix keeps in the right cell type, and how
 much genetic slope it puts into cell types without an effect (absolute, so errors in opposite directions don't
-cancel). These slopes are diagnostics of the matrices, not association tests: the genotype-informed matrix contains
+cancel; the `truth` row is the noise floor of a slope estimated from the true cell-type editing). These slopes are diagnostics of the matrices, not association tests: the genotype-informed matrix contains
 the fitted genotype effect by construction, so edQTLs are tested with `caNRD_editQTL()`, never on these matrices.
 
 ```{r leakage}
@@ -308,13 +312,15 @@ lk <- do.call(rbind, lapply(single, function(s) {
   do.call(rbind, lapply(colnames(eq$proportions)[eq$theta[s, ] > 0], function(h) {
     sl <- function(z) if (all(is.na(z))) NA_real_ else stats::coef(stats::lm(z ~ gg))[2]
     data.frame(site = s, celltype = h, affected = h == tgt, true_beta = eq$truth$beta[s, h],
-               caNRD_edit = sl(plain$deconvolved[[h]][s, ]), joint = sl(rec$reconstructed[[h]][s, ]))
+               truth = sl(eq$truth$latent[[h]][s, ]), caNRD_edit = sl(plain$deconvolved[[h]][s, ]), joint = sl(rec$reconstructed[[h]][s, ]))
   }))
 }))
 with(lk, data.frame(
-  matrix = c("caNRD_edit", "joint_reconstruction"),
-  effect_kept = c(mean(caNRD_edit[affected], na.rm = TRUE), mean(joint[affected], na.rm = TRUE)) / 0.06,
-  fake_effect_pp_per_allele = 100 * c(mean(abs(caNRD_edit[!affected]), na.rm = TRUE), mean(abs(joint[!affected]), na.rm = TRUE))))
+  matrix = c("truth", "caNRD_edit", "joint_reconstruction"),
+  effect_kept = c(mean(truth[affected] / true_beta[affected], na.rm = TRUE), mean(caNRD_edit[affected] / true_beta[affected], na.rm = TRUE),
+                  mean(joint[affected] / true_beta[affected], na.rm = TRUE)),
+  fake_effect_pp_per_allele = 100 * c(mean(abs(truth[!affected]), na.rm = TRUE), mean(abs(caNRD_edit[!affected]), na.rm = TRUE),
+                                      mean(abs(joint[!affected]), na.rm = TRUE))))
 ```
 
 Interval widths from the bootstrap fits (`total_sd`) vs. the parameter-conditional ones (`conditional_sd`):

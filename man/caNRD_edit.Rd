@@ -193,18 +193,17 @@ cell type whose theta is at (or within \code{floor_tol} of) the floor is
 treated as "not identifiable from this bulk data," not "measured to be
 small" -- it is dropped from that site's design entirely (never fed in
 as a tiny-but-nonzero weight), the remaining cell types' proportions are
-renormalized to sum to one, and \code{caNRDv0_edit()} is called on this
-reduced, well-conditioned system instead. Sites where fewer than
+renormalized to sum to one, and the reduced, well-conditioned system is
+fitted instead (by maximum likelihood; with \code{estimator = "moment"} by
+\code{caNRDv0_edit()}). Sites where fewer than
 \code{min_identifiable_celltypes} cell types survive are reported as \code{NA}
 (genuinely not estimable from this data) rather than as a numerically
 unstable guess. Sites are grouped by their identifiability pattern so
-this costs one extra \code{caNRDv0_edit()} call per unique pattern, not one
-per site.
+the work is batched per unique pattern, not done one site at a time.
 
-\code{caNRD_edit()} is now the default, recommended entry point for
-no-reference deconvolution in this package -- what used to be exported
-as \code{caNRDv2_edit()} (still available as a backward-compatible alias, see
-\code{?caNRDv2_edit}). Use \code{caNRDv0_edit()} directly only when you
+\code{caNRD_edit()} is the default, recommended entry point for
+no-reference deconvolution in this package. The previous (moment)
+estimator is \code{caNRDv0.5_edit()} (alias \code{caNRDv2_edit()}). Use \code{caNRDv0_edit()} directly only when you
 specifically want the original, ungated behavior (e.g. to reproduce old
 results, or to rerun the same before/after comparisons used to validate
 this gating in the first place).

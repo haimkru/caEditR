@@ -32,18 +32,17 @@
 #' treated as "not identifiable from this bulk data," not "measured to be
 #' small" -- it is dropped from that site's design entirely (never fed in
 #' as a tiny-but-nonzero weight), the remaining cell types' proportions are
-#' renormalized to sum to one, and `caNRDv0_edit()` is called on this
-#' reduced, well-conditioned system instead. Sites where fewer than
+#' renormalized to sum to one, and the reduced, well-conditioned system is
+#' fitted instead (by maximum likelihood; with `estimator = "moment"` by
+#' `caNRDv0_edit()`). Sites where fewer than
 #' `min_identifiable_celltypes` cell types survive are reported as `NA`
 #' (genuinely not estimable from this data) rather than as a numerically
 #' unstable guess. Sites are grouped by their identifiability pattern so
-#' this costs one extra `caNRDv0_edit()` call per unique pattern, not one
-#' per site.
+#' the work is batched per unique pattern, not done one site at a time.
 #'
-#' `caNRD_edit()` is now the default, recommended entry point for
-#' no-reference deconvolution in this package -- what used to be exported
-#' as `caNRDv2_edit()` (still available as a backward-compatible alias, see
-#' `?caNRDv2_edit`). Use `caNRDv0_edit()` directly only when you
+#' `caNRD_edit()` is the default, recommended entry point for
+#' no-reference deconvolution in this package. The previous (moment)
+#' estimator is `caNRDv0.5_edit()` (alias `caNRDv2_edit()`). Use `caNRDv0_edit()` directly only when you
 #' specifically want the original, ungated behavior (e.g. to reproduce old
 #' results, or to rerun the same before/after comparisons used to validate
 #' this gating in the first place).

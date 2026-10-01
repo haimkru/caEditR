@@ -51,7 +51,7 @@ available. This is an approximation, not real read coverage -- prefer
 real per-site coverage from your editing calls whenever you have it.
 }
 \examples{
-\dontshow{if (requireNamespace("GenomicFeatures", quietly = TRUE) && requireNamespace("TxDb.Hsapiens.UCSC.hg38.knownGene", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+\dontshow{if (requireNamespace("GenomicFeatures", quietly = TRUE) && requireNamespace("TxDb.Hsapiens.UCSC.hg38.knownGene", quietly = TRUE) && requireNamespace("org.Hs.eg.db", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 extdata <- system.file("extdata", package = "caEditR")
 bulk <- read.csv(file.path(extdata, "example_bulk_editing_ratios.csv"), row.names = 1)
 site_ids <- rownames(bulk)[1:3]

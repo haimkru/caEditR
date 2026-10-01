@@ -113,7 +113,7 @@ format_site_id <- function(chrom, pos, strand = "*") {
 #' @return a data.frame, one row per site id, columns `site_id`, `chrom`,
 #'   `pos`, `strand`, `entrez_gene_id`, `ensembl_gene_id` (the last two are
 #'   `NA` for a site with no overlapping gene).
-#' @examplesIf requireNamespace("GenomicFeatures", quietly = TRUE) && requireNamespace("TxDb.Hsapiens.UCSC.hg38.knownGene", quietly = TRUE)
+#' @examplesIf requireNamespace("GenomicFeatures", quietly = TRUE) && requireNamespace("TxDb.Hsapiens.UCSC.hg38.knownGene", quietly = TRUE) && requireNamespace("org.Hs.eg.db", quietly = TRUE)
 #' # Real site ids bundled with this package (GRCh38/hg38 coordinates --
 #' # see this project's own README for the alignment pipeline's genome build).
 #' extdata <- system.file("extdata", package = "caEditR")
@@ -230,7 +230,7 @@ map_sites_to_genes <- function(site_ids, genome = c("hg19", "hg38")) {
 #' @return numeric matrix, sites (rows, `site_ids`) x samples (columns,
 #'   `colnames(expression)`), with a `"site_to_gene"` attribute (the full
 #'   `map_sites_to_genes()` result, for inspection/diagnostics).
-#' @examplesIf requireNamespace("GenomicFeatures", quietly = TRUE) && requireNamespace("TxDb.Hsapiens.UCSC.hg38.knownGene", quietly = TRUE)
+#' @examplesIf requireNamespace("GenomicFeatures", quietly = TRUE) && requireNamespace("TxDb.Hsapiens.UCSC.hg38.knownGene", quietly = TRUE) && requireNamespace("org.Hs.eg.db", quietly = TRUE)
 #' extdata <- system.file("extdata", package = "caEditR")
 #' bulk <- read.csv(file.path(extdata, "example_bulk_editing_ratios.csv"), row.names = 1)
 #' site_ids <- rownames(bulk)[1:3]
