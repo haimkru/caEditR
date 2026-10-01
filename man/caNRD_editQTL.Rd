@@ -68,6 +68,9 @@ a caNRD fit; used as one of several starting values only.}
 
 \item{max_outer}{maximum alternations between the mean/variance fit and the model-based \eqn{\tau^2} update.}
 
+\item{tol}{convergence tolerance of that alternation: stop when the largest change in the mean parameters is below
+`tol` (default 1e-7) or the relative log-likelihood change is below 1e-8.}
+
 \item{engine}{`"fast"` (default): the same estimator maximised by a batched projected-Newton method with the analytic
 gradient and exact Hessian of the profiled likelihood, sharing work across all variants of a site (17-140x faster in
 simulation; results agree with `"reference"` to ~1e-4 in beta, never at a lower likelihood on the same objective).

@@ -26,6 +26,8 @@
 #' Cholesky factorisations): ~1 ms per site at 500 donors, linear in the number of sites.
 #'
 #' @inheritParams caNRD_joint_reconstruction
+#' @param bulk_editing,genotypes,proportions,theta,theta_floor,coverage the inputs `fit` was computed from, as in
+#'   [caNRD_editQTL()].
 #' @param fit output of [caNRD_editQTL()] with one variant per site.
 #' @param min_sites minimum number of tested sites per cell type to estimate its prior (default 50); below it that
 #'   cell type's betas are left unshrunk (with a warning).
