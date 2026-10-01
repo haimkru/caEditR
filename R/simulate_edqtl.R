@@ -17,7 +17,7 @@
 simulate_bulk_expression <- function(proportions, theta, noise_sdlog = 0.15, seed = 0) {
   proportions <- as.matrix(proportions); theta <- as.matrix(theta)
   if (!all(colnames(proportions) %in% colnames(theta))) stop("theta must have a column for every cell type in proportions", call. = FALSE)
-  set.seed(seed)
+  .local_seed(seed)
   e <- tcrossprod(theta[, colnames(proportions), drop = FALSE], proportions)
   e * matrix(exp(stats::rnorm(length(e), 0, noise_sdlog)), nrow(e))
 }
@@ -81,8 +81,8 @@ simulate_edqtl_cohort <- function(n_donors = 1000, celltypes = c("Neutrophils", 
   K <- length(celltypes)
   if (length(composition) != K) stop("composition must have one value per cell type", call. = FALSE)
   if (n_variants < 1) stop("n_variants must be >= 1", call. = FALSE)
-  set.seed(seed)
-  donors <- sprintf("donor%04d", seq_len(n_donors))
+  .local_seed(seed)
+  donors <-sprintf("donor%04d", seq_len(n_donors))
   P <- matrix(stats::rgamma(n_donors * K, shape = rep(composition * concentration, n_donors)), n_donors, K, byrow = TRUE)
   P <- P / rowSums(P); dimnames(P) <- list(donors, celltypes)
   types <- rep(c(paste0("only_", celltypes), "shared", "null"), each = n_sites_per_type)

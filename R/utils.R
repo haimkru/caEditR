@@ -1,3 +1,16 @@
+# set.seed(seed) for the calling function only: the caller's exit restores the user's random-number state
+# (Bioconductor: functions must not change the global seed)
+.local_seed <- function(seed, envir = parent.frame()) {
+  old <- get0(".Random.seed", envir = globalenv(), inherits = FALSE)
+  restore <- function() {
+    if (is.null(old)) {
+      if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) rm(".Random.seed", envir = globalenv())
+    } else assign(".Random.seed", old, envir = globalenv())
+  }
+  do.call(on.exit, list(bquote(.(restore)()), add = TRUE), envir = envir)
+  set.seed(seed)
+}
+
 #' Vectorized compute_effective_weights(mode="phi"), batched over samples
 #'
 #' Identical formula to `compute_effective_weights()`, just computed

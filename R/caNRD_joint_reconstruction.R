@@ -510,7 +510,7 @@ caNRD_joint_reconstruction <- function(bulk_editing, genotypes, proportions, the
 caNRD_editQTL_bootstrap <- function(bulk_editing, genotypes, proportions, theta, theta_floor, pairs = NULL, coverage = NULL,
                                     n_boot = 50, seed = NULL, ...) {
   if (missing(theta_floor)) stop("theta_floor is required", call. = FALSE)
-  if (!is.null(seed)) set.seed(seed)
+  if (!is.null(seed)) .local_seed(seed)
   bulk_editing <- as.matrix(bulk_editing); genotypes <- as.matrix(genotypes); proportions <- as.matrix(proportions)
   samples <- Reduce(intersect, list(colnames(bulk_editing), colnames(genotypes), rownames(proportions)))
   if (!is.null(coverage)) { coverage <- as.matrix(coverage); samples <- intersect(samples, colnames(coverage)) }

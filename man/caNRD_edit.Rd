@@ -56,9 +56,10 @@ distinct real values).}
 \item{min_identifiable_celltypes}{minimum number of non-floor cell types
 a site needs to attempt deconvolution at all (default 1 -- a site
 where only ONE cell type carries real signal still gets a genuine,
-meaningful estimate for that one cell type, attributing the full bulk
-signal to it; set to 2 to require at least two cell types to attempt
-any separation at all).}
+meaningful estimate for that one cell type: the bulk value with only
+the read-sampling noise shrunk away (all non-binomial variance is
+attributed to that cell type); set to 2 to require at least two cell
+types to attempt any separation at all).}
 
 \item{min_mean_phi}{minimum mean effective mixing weight (\code{phi}, see
 \code{compute_effective_weights()}) a cell type must carry, averaged across

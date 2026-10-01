@@ -1,42 +1,27 @@
 Package: caEditR
-Title: Cell-Type-Resolved RNA-Editing Deconvolution (caRD-Edit, caNRD-Edit, TCA_Like)
+Title: Cell-Type-Resolved RNA-Editing Deconvolution and Cell-Type Editing QTLs
 Version: 0.99.3
 Authors@R: person("Haim Krupkin+Claude", role = c("aut", "cre"), email = "haim.krupkin@gmail.com")
-Description: Brief description- this package enablers the cell type deconvultion of bulk rna sampels into invididual matrices of cell type specific RNA editing. Deconvolves bulk RNA-editing-ratio matrices into per-cell-type
-    editing estimates using three interchangeable methods sharing the same
-    underlying Bayesian per-site estimator: caRD_edit() (reference-based,
-    needs a real sorted-cell-derived mu/sigma2/theta reference), caNRD_edit()
-    (no-reference, self-estimates mu/sigma2 from the bulk cohort itself),
-    and TCA_Like() (a thin wrapper around the real CRAN 'TCA' package, run
-    with proportion-only mixing weights). Also provides
-    estimate_proportions_signature_matrix(), a general
-    NNLS-based (CIBERSORT-style, not literally CIBERSORT) alternative that
-    works with any signature matrix (e.g. LM22, supplied by the user, or
-    the bundled real GSE107011-derived alternative), for when a full
-    multi-subject reference isn't available or appropriate,
-    map_sites_to_genes()/build_coverage_from_expression() for
-    mapping RNA-editing sites to their host gene (hg19/hg38, via the real
-    Bioconductor UCSC TxDb annotation packages) and approximating a
-    per-site coverage matrix from per-sample gene expression, and
-    simulate_reference_and_cohort(), a fast synthetic-data generator for
-    benchmarking all three methods against known ground truth. The core math (compute_effective_weights, binomial_tau2,
-    deconvolve_site) is vendored, UNMODIFIED, from this project's own
-    validated Python implementation (src/catca_edit/core.py,
-    src/catca_edit/no_reference.py) and called in a fresh Python subprocess
-    per operation (via base R's system2(), with JSON in/out via jsonlite) --
-    this package does not re-implement that math in R, to avoid introducing
-    new bugs into already-tested code, and deliberately does NOT embed
-    Python inside the R process (e.g. via reticulate): doing so was found,
-    during development, to fail unpredictably in long-running R sessions
-    where R's own process had already loaded an incompatible system
-    libstdc++ before this package's code ever ran (a well-documented
-    reticulate failure mode, not fixable from within the affected process).
-    Running each operation in a brand-new subprocess, with its own
-    environment set at that subprocess's own exec() time, avoids this
-    entirely and makes library(caEditR) plus a direct function call behave
-    identically regardless of what else has been loaded into the calling
-    R session.
+Description: Deconvolves bulk RNA-editing-ratio matrices (sites x samples)
+    into per-cell-type editing estimates, using each sample's cell-type
+    proportions and each site's host-gene expression per cell type (RNA
+    share) and read coverage: caRD_edit() (with a sorted-cell reference),
+    caNRD_edit() (no reference; parameters estimated from the bulk cohort by
+    maximum likelihood) and TCA_Like() (a wrapper around the CRAN 'TCA'
+    package). Tests cell-type-specific genetic effects on editing (edQTLs)
+    with a joint likelihood model: celltype_edqtl() and caNRD_editQTL(),
+    including a batched scan engine for genome-wide cis scans. Builds
+    genotype-informed cell-type editing matrices with
+    caNRD_editQTL_shrink() and caNRD_joint_reconstruction(). Also provides
+    cell-type proportion and expression-weight estimation, mapping of sites
+    to host genes (hg19/hg38), coverage derived from gene expression, and
+    simulators of cohorts with known truth. Part of the original
+    deconvolution math runs in a bundled Python implementation called in a
+    subprocess; the edQTL, reconstruction and simulation functions are
+    implemented in R and C++.
 License: MIT + file LICENSE
+URL: https://github.com/haimkru/caEditR
+BugReports: https://github.com/haimkru/caEditR/issues
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
 SystemRequirements: Python (>= 3.9), numpy, scipy
@@ -54,7 +39,6 @@ Suggests:
     ggplot2,
     knitr,
     rmarkdown,
-    BiocStyle,
     GenomicFeatures,
     GenomicRanges,
     IRanges,

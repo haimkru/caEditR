@@ -38,6 +38,7 @@ installed.
 library(caEditR)
 Sys.setenv(PYTHONNOUSERSITE = "1")   # the child Python used by caRD_edit()/caNRD_edit() ignores ~/.local packages
 has_ggplot <- requireNamespace("ggplot2", quietly = TRUE)
+has_tca <- requireNamespace("TCA", quietly = TRUE)        # TCA_Like() needs the CRAN 'TCA' package (optional)
 ```
 
 # 1. Site ids and per-site annotation
@@ -57,7 +58,7 @@ their host genes and turn a gene x sample expression matrix into a site x sample
 
 ```{r annotation}
 have_annot <- requireNamespace("GenomicFeatures", quietly = TRUE) &&
-  requireNamespace("TxDb.Hsapiens.UCSC.hg38.knownGene", quietly = TRUE)
+  requireNamespace("TxDb.Hsapiens.UCSC.hg38.knownGene", quietly = TRUE) && requireNamespace("org.Hs.eg.db", quietly = TRUE)
 if (have_annot) {
   sites <- format_site_id(c("10", "10"), c(100232436, 100232925), c("-", "-"))
   print(map_sites_to_genes(sites, genome = "hg38"))
@@ -139,7 +140,7 @@ reference <- list(mu = cohort$reference_estimated$mu, sigma2 = cohort$reference_
 out_card  <- caRD_edit(cohort$bulk_editing, cohort$coverage, cohort$proportions, reference, theta_floor = 1e-3)
 out_canrd <- caNRD_edit(cohort$bulk_editing, cohort$coverage, cohort$proportions, theta_hat, theta_floor = 1e-3, iterative = TRUE)
 bulk_nz   <- cohort$bulk_editing[apply(cohort$bulk_editing, 1, stats::var) > 1e-8, , drop = FALSE]
-out_tca   <- TCA_Like(bulk_nz, cohort$proportions)          # CRAN TCA's per-sample estimates (proportions only)
+out_tca   <- if (has_tca) TCA_Like(bulk_nz, cohort$proportions)   # CRAN TCA's per-sample estimates (proportions only)
 summary(out_canrd$diagnostics[, c("n_to_c_ratio", "condition_number")])
 ```
 
@@ -150,12 +151,13 @@ cts <- names(cohort$ground_truth)
 r2 <- data.frame(celltype = cts,
   caRD_edit  = sapply(cts, function(h) cor(as.vector(out_card$deconvolved[[h]]), as.vector(cohort$ground_truth[[h]]), use = "complete.obs")^2),
   caNRD_edit = sapply(cts, function(h) cor(as.vector(out_canrd$deconvolved[[h]]), as.vector(cohort$ground_truth[[h]]), use = "complete.obs")^2),
-  TCA_Like   = sapply(cts, function(h) cor(as.vector(out_tca$deconvolved[[h]]), as.vector(cohort$ground_truth[[h]][rownames(bulk_nz), ]))^2))
+  TCA_Like   = if (!has_tca) NA_real_ else sapply(cts, function(h) cor(as.vector(out_tca$deconvolved[[h]]), as.vector(cohort$ground_truth[[h]][rownames(bulk_nz), ]))^2))
 print(r2, row.names = FALSE, digits = 3)
 ```
 
-The building blocks of `caNRD_edit()` for one site: estimate the no-reference parameters, then the per-sample
-posterior means.
+The building blocks of the moment estimator (`caNRDv0.5_edit()`, i.e. `caNRD_edit(estimator = "moment")`) for one
+site: estimate the no-reference parameters, then the per-sample posterior means. (The default ML estimator fits the
+same model by maximum likelihood.)
 
 ```{r low-level}
 s <- 1

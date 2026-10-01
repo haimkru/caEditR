@@ -42,6 +42,15 @@ test_that("scan impute_genotypes = 'mean' matches 'none' closely on sparse missi
   expect_gt(cor(a$beta, b$beta, use = "complete.obs"), 0.99)
 })
 
+test_that("simulators and bootstrap leave the user's random-number state unchanged", {
+  set.seed(99); before <- .Random.seed
+  simulate_edqtl_cohort(50, n_sites_per_type = 1, n_variants = 1, seed = 5)
+  expect_identical(.Random.seed, before)
+  a <- simulate_edqtl_cohort(50, n_sites_per_type = 1, n_variants = 1, seed = 5)
+  b <- simulate_edqtl_cohort(50, n_sites_per_type = 1, n_variants = 1, seed = 5)
+  expect_identical(a$bulk_editing, b$bulk_editing)
+})
+
 test_that("helpers validate their inputs", {
   expect_error(binomial_tau2(c(.1, .2, .3), c(10, 20)), "lengths")
   expect_true(is.na(binomial_tau2(0.2, NA)))

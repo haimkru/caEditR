@@ -14,7 +14,8 @@ vignette: >
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height = 4)
-print("this is a test of printing capabilites :)")
+# this vignette compares against TCA_Like(), which needs the optional CRAN 'TCA' package: without it, show code only
+if (!requireNamespace("TCA", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
 ```
 
 # Introduction
@@ -35,12 +36,11 @@ All three return the same output shape: `$deconvolved`, a named list of per cell
 
 # Installation
 
-`caEditR` is installed like any other Bioconductor package:
+`caEditR` is installed from GitHub:
 
 ```{r install, eval = FALSE}
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-BiocManager::install("caEditR")
+if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
+remotes::install_github("haimkru/caEditR", build_vignettes = TRUE)
 ```
 
 ```{r load}
@@ -50,7 +50,7 @@ library(caEditR)
 ```{r ensure-tca, eval = FALSE}
 # TCA_Like() wraps the real CRAN 'TCA' package (a Suggests, not a hard
 # dependency); if it isn't already installed, install it separately:
-caEditR:::.ensure_installed("TCA")
+install.packages("TCA")
 ```
 
 # Simulate the cohort
@@ -157,7 +157,7 @@ For more detailed qc:
 
 **marginal_n;**: `TRUE` when `n_to_c_ratio < 3` whether we are below the n needed to solve equations... 
   
-**`condition_number`**: how much a small wobble in the observed bulk would influence the rarer cell types. anything below 1000 is ok. if a site is over 1000, we might not be able to trust it for rare cell types.
+**`condition_number`**: how much a small wobble in the observed bulk would influence the rarer cell types. sites above `max_condition_number` (default 1e4) are excluded (`status = "reduced_system_still_unstable"`); the closer a site is to that limit, the less we can trust it for rare cell types.
 
 ```{r diagnostics-summary}
 head(out_canrd$diagnostics)
@@ -273,7 +273,7 @@ read_matrix <- function(f) as.matrix(read.csv(file.path(extdata, f), row.names =
 real_bulk <- read_matrix("gse64655_bulk_editing_ratios.csv")       # 107 real sites x 8 real bulk samples
 real_coverage <- read_matrix("gse64655_bulk_coverage.csv")         # REAL per-site coverage this time, not a placeholder
 real_gene_counts <- read_matrix("gse64655_bulk_gene_counts.csv")   # REAL featureCounts, same 8 real bulk samples
-real_proportions <- read_matrix("gse64655_proportions.csv")        # real, MuSiC-estimated (pooled, see disclosure above)
+real_proportions <- read_matrix("gse64655_proportions.csv")        # real, MuSiC-estimated (pooled)
 real_reference <- list(
   mu = read_matrix("gse64655_reference_mu.csv"),
   sigma2 = read_matrix("gse64655_reference_sigma2.csv"),
@@ -310,7 +310,7 @@ format_site_id("1", 12831014)               # strand unspecified -> no trailing 
 ## Mapping RNA editing sites to the genes they are found in, and deriving coverage from expression, as a proxy.
 
 Exactly the same functions as before, just pointed at GSE64655 - genome` build parameter is required **GRCh38/hg38**.
-By default map sites to genes uses Ensembl release 110
+`map_sites_to_genes()` uses the UCSC knownGene transcript annotation (TxDb.Hsapiens.UCSC.hg38.knownGene) and maps to Ensembl gene ids with org.Hs.eg.db.
 
 This section (and "Passing `expression` directly instead of a separate
 coverage step" below) needs the real Bioconductor UCSC genome-annotation
@@ -472,8 +472,6 @@ if (requireNamespace("ggplot2", quietly = TRUE)) {
 }
 ```
 
-**Interpretation, stated honestly**:
-
 ## Passing `expression` directly instead of a separate coverage step
 
 This also needs the same optional genome-annotation packages checked
@@ -497,7 +495,7 @@ if (has_genome_annotation) {
 `coverage` (a real matrix) and `expression` are mutually exclusive ways to supply the same argument. if you have real per-site coverage, always prefer it (`coverage` silently wins if both are given, with a `message()` saying so); `expression`derived coverage is a proxy for when you don't have coverage.
 
 # Session info
-s
+
 ```{r sessionInfo}
 sessionInfo()
 ```
