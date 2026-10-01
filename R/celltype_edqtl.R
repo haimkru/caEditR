@@ -15,7 +15,7 @@
 #' misspecification and conservative for rare variants); t-test.
 #'
 #' Limitations: (1) misattribution grows with error in `theta` -- in simulation, theta off by ~2x was harmless but
-#' ~4x produced 15\% cross-cell-type calls at p < 1e-3; (2) by construction, a genotype effect located in a cell type that is NOT in the model (gated out,
+#' ~4x produced 15% cross-cell-type calls at p < 1e-3; (2) by construction, a genotype effect located in a cell type that is NOT in the model (gated out,
 #' or absent from `proportions`) still changes bulk editing and can be partly attributed to the modeled cell types;
 #' (3) population structure: include genotype PCs in `covariates` (omitting a confounder inflated false positives).
 #' Samples with missing covariates or coverage are dropped.
@@ -26,8 +26,8 @@
 #' the genotype x weight interaction across the whole cohort uses the fact that a cell type's effect must scale
 #' with that cell type's share of each sample. In simulation (670 GTEx donors, real GTEx proportions and
 #' theta) this test kept the false-positive rate in cell types without an effect at the nominal level (0 at
-#' p < 1e-3, vs. 56-63\% for per-sample estimates) and recovered effect sizes (median 0.85-1.04 of the truth), with
-#' somewhat lower power than per-sample testing (roughly 80-90\% of it).
+#' p < 1e-3, vs. 56-63% for per-sample estimates) and recovered effect sizes (median 0.85-1.04 of the truth), with
+#' somewhat lower power than per-sample testing (roughly 80-90% of it).
 #'
 #' Cell types are gated exactly like `caNRD_edit()` (theta at the floor, or mean phi below `min_mean_phi`, are
 #' excluded at that site) and are reported with `status = "not_identifiable"`. Samples with a missing bulk ratio
@@ -35,8 +35,8 @@
 #' composition is undefined), are dropped for that site.
 #'
 #' @param bulk_editing numeric matrix, sites (rows, named) x samples (columns, named), observed bulk ratios in
-#'   \\[0,1\\]; `NA` allowed.
-#' @param genotypes numeric matrix, variants (rows, named) x samples (columns, named), dosages in \\[0,2\\].
+#'   \[0,1\]; `NA` allowed.
+#' @param genotypes numeric matrix, variants (rows, named) x samples (columns, named), dosages in \[0,2\].
 #' @param proportions numeric matrix, samples (rows, named) x cell types (columns, named), rows summing to 1.
 #' @param theta numeric matrix, sites (rows) x cell types (columns), per-site relative expression of the host
 #'   gene (as used by `caNRD_edit()`).

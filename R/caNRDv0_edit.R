@@ -29,7 +29,7 @@
 #' `figures/fig_canrd_n_sweep_r_squared.py::run_one_seed()`).
 #'
 #' @param bulk_editing numeric matrix, sites (rows) x samples (columns),
-#'   observed bulk editing ratios in \\[0,1\\].
+#'   observed bulk editing ratios in \[0,1\].
 #' @param coverage numeric matrix, same shape as `bulk_editing`. Supply
 #'   EITHER this (preferred, when you have real per-site coverage) OR
 #'   `expression` below (not both -- if both are given, `coverage` wins

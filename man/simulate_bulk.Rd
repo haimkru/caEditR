@@ -14,7 +14,7 @@ simulate_bulk(
 )
 }
 \arguments{
-\item{e_true}{array, dim (n_samples, n_sites, n_celltypes) (e.g. from `simulate_true_editing()`).}
+\item{e_true}{array, dim (n_samples, n_sites, n_celltypes) (e.g. from \code{simulate_true_editing()}).}
 
 \item{proportions}{numeric matrix, samples x celltypes.}
 
@@ -28,12 +28,12 @@ simulate_bulk(
 }
 \value{
 list(e_bulk_true, e_bulk_obs, coverage) -- each a sites x samples
-  matrix, TRANSPOSED here to match this package's own sites-x-samples
-  convention (the underlying Python function returns samples x sites).
+matrix, TRANSPOSED here to match this package's own sites-x-samples
+convention (the underlying Python function returns samples x sites).
 }
 \description{
-Thin wrapper around the vendored, unmodified `simulate.simulate_bulk` --
-mixes true per-celltype editing by the coverage-aware weight `phi`, draws
+Thin wrapper around the vendored, unmodified \code{simulate.simulate_bulk} --
+mixes true per-celltype editing by the coverage-aware weight \code{phi}, draws
 a Poisson (or fixed) coverage per site/sample, then a Binomial count of
 edited reads.
 }

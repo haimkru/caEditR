@@ -26,11 +26,11 @@ simulate_edqtl_cohort(
 
 \item{celltypes}{cell-type names (default four blood cell types).}
 
-\item{composition}{mean cell-type proportions (Dirichlet mean), same length as `celltypes`.}
+\item{composition}{mean cell-type proportions (Dirichlet mean), same length as \code{celltypes}.}
 
 \item{concentration}{Dirichlet concentration (default 20).}
 
-\item{n_sites_per_type}{number of sites of each type (default 10): `length(celltypes)` single-cell-type classes,
+\item{n_sites_per_type}{number of sites of each type (default 10): \code{length(celltypes)} single-cell-type classes,
 shared and null.}
 
 \item{n_variants}{cis variants per site (default 5, at least 1).}
@@ -45,43 +45,43 @@ shared and null.}
 
 \item{theta_zero_p}{probability that a cell type does not express a site's host gene (default 0.25).}
 
-\item{coverage}{`"realistic"` (default) or `"poisson"`.}
+\item{coverage}{\code{"realistic"} (default) or \code{"poisson"}.}
 
 \item{mean_coverage}{median (realistic) or mean (poisson) coverage (default 40).}
 
 \item{seed}{random seed (default 0).}
 }
 \value{
-a list with `bulk_editing`, `coverage`, `bulk_expression` (sites x donors), `genotypes` (variants x
-  donors), `proportions` (donors x cell types), `theta` (sites x cell types), `pairs` (data.frame site_id,
-  variant_id) and `truth`: `site_type` (named by site), `mu`, `sd`, `beta` (sites x cell types; beta is the effect of
-  the causal variant), `latent` (named list per cell type of sites x donors true editing, NA where the cell type
-  does not express the host gene), `causal_variant` (named by site) and `variants` (data.frame per variant: site_id,
-  variant_id, role, r2 with the causal variant).
+a list with \code{bulk_editing}, \code{coverage}, \code{bulk_expression} (sites x donors), \code{genotypes} (variants x
+donors), \code{proportions} (donors x cell types), \code{theta} (sites x cell types), \code{pairs} (data.frame site_id,
+variant_id) and \code{truth}: \code{site_type} (named by site), \code{mu}, \code{sd}, \code{beta} (sites x cell types; beta is the effect of
+the causal variant), \code{latent} (named list per cell type of sites x donors true editing, NA where the cell type
+does not express the host gene), \code{causal_variant} (named by site) and \code{variants} (data.frame per variant: site_id,
+variant_id, role, r2 with the causal variant).
 }
 \description{
 Generates a cohort with known cell-type genetic effects on RNA editing, in the formats every caEditR function
-uses: sites x donors `bulk_editing` and `coverage`, variants x donors `genotypes`, donors x cell types
-`proportions`, sites x cell types `theta`, a `pairs` table (site, variant) and `bulk_expression` of the host genes.
-Site ids follow [format_site_id()].
+uses: sites x donors \code{bulk_editing} and \code{coverage}, variants x donors \code{genotypes}, donors x cell types
+\code{proportions}, sites x cell types \code{theta}, a \code{pairs} table (site, variant) and \code{bulk_expression} of the host genes.
+Site ids follow \code{\link[=format_site_id]{format_site_id()}}.
 }
 \details{
 Design (each site has its own variants; one of them is causal):
 \itemize{
-  \item site types: an effect in exactly one cell type (`only_<celltype>`, one class per cell type), the same effect
-    in every cell type that expresses the host gene (`shared`), or no effect (`null`);
-  \item per site, `n_variants` cis variants: variant 1 is causal (MAF `maf`), variants 2-3 are in LD with it
-    (each allele copied from the causal haplotype with probability 0.9 and 0.6), the rest are independent
-    (MAF uniform on 0.05-0.5);
-  \item latent editing of donor i in cell type h: \eqn{Z_{ih} = \mu_h + \beta_h G_i + \epsilon_{ih}}, clipped to
-    \[0, 1\]; baselines \eqn{\mu_h} = U(`baseline`) x U(0.6, 1.4) per site and cell type; sd = `sd` x U(0.5, 1.5);
-  \item host-gene expression weights theta ~ lognormal(0, 0.5); with probability `theta_zero_p` a cell type does
-    not express the host gene at a site (theta = 0; at least 2 cell types express it; a cell type with an effect
-    always does). RNA shares \eqn{\phi = p \theta / \sum p \theta};
-  \item reads: `coverage = "realistic"`: Poisson(site depth x donor sequencing depth x the donor's relative host-gene
-    expression), site depth lognormal (median `mean_coverage`, log-sd 1, clipped 5-1000), donor depth
-    lognormal(0, 0.6), at least 2 reads; `"poisson"`: Poisson(`mean_coverage`) + 10. Edited reads
-    ~ Binomial(coverage, \eqn{\sum_h \phi_{ih} Z_{ih}}).
+\item site types: an effect in exactly one cell type (\verb{only_<celltype>}, one class per cell type), the same effect
+in every cell type that expresses the host gene (\code{shared}), or no effect (\code{null});
+\item per site, \code{n_variants} cis variants: variant 1 is causal (MAF \code{maf}), variants 2-3 are in LD with it
+(each allele copied from the causal haplotype with probability 0.9 and 0.6), the rest are independent
+(MAF uniform on 0.05-0.5);
+\item latent editing of donor i in cell type h: \eqn{Z_{ih} = \mu_h + \beta_h G_i + \epsilon_{ih}}, clipped to
+[0, 1]; baselines \eqn{\mu_h} = U(\code{baseline}) x U(0.6, 1.4) per site and cell type; sd = \code{sd} x U(0.5, 1.5);
+\item host-gene expression weights theta ~ lognormal(0, 0.5); with probability \code{theta_zero_p} a cell type does
+not express the host gene at a site (theta = 0; at least 2 cell types express it; a cell type with an effect
+always does). RNA shares \eqn{\phi = p \theta / \sum p \theta};
+\item reads: \code{coverage = "realistic"}: Poisson(site depth x donor sequencing depth x the donor's relative host-gene
+expression), site depth lognormal (median \code{mean_coverage}, log-sd 1, clipped 5-1000), donor depth
+lognormal(0, 0.6), at least 2 reads; \code{"poisson"}: Poisson(\code{mean_coverage}) + 10. Edited reads
+~ Binomial(coverage, \eqn{\sum_h \phi_{ih} Z_{ih}}).
 }
 }
 \examples{

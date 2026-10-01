@@ -25,7 +25,6 @@
 #' All steps are vectorised over sites (grouped by their set of tested cell types; batched small-matrix inverses and
 #' Cholesky factorisations): ~1 ms per site at 500 donors, linear in the number of sites.
 #'
-#' @inheritParams caNRD_joint_reconstruction
 #' @param bulk_editing,genotypes,proportions,theta,theta_floor,coverage the inputs `fit` was computed from, as in
 #'   [caNRD_editQTL()].
 #' @param fit output of [caNRD_editQTL()] with one variant per site.

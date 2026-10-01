@@ -7,9 +7,9 @@
 binomial_tau2(e_bulk, coverage, floor = 1e-06)
 }
 \arguments{
-\item{e_bulk}{observed bulk editing ratio(s) in \[0,1\] (scalar or vector).}
+\item{e_bulk}{observed bulk editing ratio(s) in [0,1] (scalar or vector).}
 
-\item{coverage}{total read depth(s), > 0 (recycled with `e_bulk`).}
+\item{coverage}{total read depth(s), > 0 (recycled with \code{e_bulk}).}
 
 \item{floor}{minimum variance returned (default 1e-6).}
 }
@@ -17,8 +17,8 @@ binomial_tau2(e_bulk, coverage, floor = 1e-06)
 numeric, tau2 (same length as the recycled inputs).
 }
 \description{
-Same rule as the vendored `core.binomial_tau2`, in vectorised R:
-`tau2 = e*(1-e)/coverage` (e clipped to \[0,1\], floored), the sampling variance of an editing
+Same rule as the vendored \code{core.binomial_tau2}, in vectorised R:
+\code{tau2 = e*(1-e)/coverage} (e clipped to [0,1], floored), the sampling variance of an editing
 ratio measured from a finite number of reads.
 }
 \examples{

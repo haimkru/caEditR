@@ -17,7 +17,7 @@
 #' @param frac_skewed_genes fraction of sites with skewed (vs. uniform) theta.
 #' @param seed RNG seed, for full determinism.
 #' @param mu_mode "uniform" (mu ~ Uniform(0.05,0.60) per site per celltype)
-#'   or "normal" (mu ~ Normal(mu_mean, mu_sd), clipped to \\[0,1\\]).
+#'   or "normal" (mu ~ Normal(mu_mean, mu_sd), clipped to \[0,1\]).
 #' @param mu_mean,mu_sd used only when `mu_mode="normal"`.
 #' @return list(mu, sigma2, theta) (each sites x celltypes matrix) and
 #'   `enriched_celltype` (integer vector, length sites, 0-indexed -- which
@@ -64,7 +64,7 @@ simulate_proportions <- function(n_samples, composition, concentration = 10.0, s
 #' Simulate true (unobserved) per-sample, per-site, per-celltype editing
 #'
 #' Thin wrapper around the vendored, unmodified `simulate.simulate_true_editing`.
-#' `e\\[i,s,c\\] ~ Normal(mu\\[s,c\\], sigma2\\[s,c\\])`, clipped to \\[0,1\\].
+#' `e[i,s,c] ~ Normal(mu[s,c], sigma2[s,c])`, clipped to \[0,1\].
 #' @param mu,sigma2 sites x celltypes matrices (e.g. from `simulate_reference()`).
 #' @param n_samples number of samples to simulate.
 #' @param seed RNG seed.

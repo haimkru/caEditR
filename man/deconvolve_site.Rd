@@ -10,7 +10,7 @@ deconvolve_site(e_bulk, phi, tau2, mu, sigma2)
 \item{e_bulk}{observed bulk editing ratio at this site/sample.}
 
 \item{phi}{numeric vector, effective mixing weights (from
-`compute_effective_weights()`), sums to 1.}
+\code{compute_effective_weights()}), sums to 1.}
 
 \item{tau2}{measurement-noise variance at this site/sample.}
 
@@ -22,7 +22,7 @@ deconvolve_site(e_bulk, phi, tau2, mu, sigma2)
 numeric vector, posterior mean editing estimate per cell type.
 }
 \description{
-Thin wrapper around the vendored, unmodified `core.deconvolve_site` --
+Thin wrapper around the vendored, unmodified \code{core.deconvolve_site} --
 the single Bayesian formula shared by caRD_edit(), caNRD_edit(), and (in
 its proportion-only-weighted form) TCA. See the project's
 CARD_CANRD_EDIT_MATH_REFERENCE.md for the full derivation.

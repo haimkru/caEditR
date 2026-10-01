@@ -7,15 +7,15 @@
 .find_python()
 }
 \description{
-Tries, in order: (1) `options(caEditR.python=...)`, (2) the
-`CAEDITR_PYTHON` environment variable, (3) `~/envs/catca-edit/bin/python3`
+Tries, in order: (1) \code{options(caEditR.python=...)}, (2) the
+\code{CAEDITR_PYTHON} environment variable, (3) \verb{~/envs/catca-edit/bin/python3}
 if it exists (this project's own dev environment), (4) whatever
-`python3` is first on PATH.
+\code{python3} is first on PATH.
 }
 \details{
-Deliberately does NOT use `reticulate::conda_list()`/`reticulate::use_python()`
+Deliberately does NOT use \code{reticulate::conda_list()}/\code{reticulate::use_python()}
 -- this package no longer embeds Python inside the R process at all (see
-`.run_python_op()`'s own docstring for why), so there is nothing to
-"configure" beyond finding a path to hand to `system2()`.
+\code{.run_python_op()}'s own docstring for why), so there is nothing to
+"configure" beyond finding a path to hand to \code{system2()}.
 }
 \keyword{internal}

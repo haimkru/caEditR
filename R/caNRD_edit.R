@@ -88,7 +88,7 @@
 #'   \[0,1\]-bounded true parameter is expected, healthy boundary noise,
 #'   and a useful signal that the estimator is actually running
 #'   (unclamped) rather than artificially forced into range. Confirmed
-#'   directly on a real genome-wide run: 86-100\% of all remaining negative
+#'   directly on a real genome-wide run: 86-100% of all remaining negative
 #'   estimates (per cell type), after the three identifiability gates
 #'   above, already fall within this tolerance.
 #' @param boundary_clip_tol estimates beyond `boundary_tiny_tol` but still
@@ -106,7 +106,7 @@
 #'   samples, to be considered identifiable at a site (default `0.10`).
 #'   Not being at the floor is necessary but not sufficient: a cell type
 #'   whose theta is merely 100x smaller than another's at a site can still
-#'   contribute a negligible (~1\%) share of the bulk mixture, and its
+#'   contribute a negligible (~1%) share of the bulk mixture, and its
 #'   estimate is just as unrecoverable as a floor-clamped one -- confirmed
 #'   directly not to improve with more samples or more coverage, unlike a
 #'   genuinely shared (e.g. ~50/50) mixture, which does carry real,
@@ -118,11 +118,11 @@
 #'   system whose overall condition number looks fine. A direct
 #'   calibration (phi vs. correlation with known ground truth; see
 #'   figures/scripts_more_datasets/fig_phi_signal_ceiling.R in the parent
-#'   catca-edit-hpc project) found phi in the 1-10\% range still only
+#'   catca-edit-hpc project) found phi in the 1-10% range still only
 #'   reaches cor -0.06 to 0.17 with truth -- essentially noise, not clean
 #'   signal, and confirmed not to improve with more samples or coverage.
 #'   Lower to `0.01` to only screen out the clearly-worse-than-random tail
-#'   (phi<~1\%) and retain that noisier 1-10\% range instead.
+#'   (phi<~1%) and retain that noisier 1-10% range instead.
 #' @param max_condition_number a second QC gate applied AFTER the
 #'   floor-based reduction (default `1e4`, caEditR's own documented rule of
 #'   thumb for "trust much more under this"). Excluding floor-clamped cell

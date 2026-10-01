@@ -22,7 +22,7 @@
 #' reference.
 #'
 #' @param bulk_editing numeric matrix, sites (rows) x samples (columns),
-#'   observed bulk editing ratios in \\[0,1\\]. Row names = site ids, must
+#'   observed bulk editing ratios in \[0,1\]. Row names = site ids, must
 #'   match `reference`'s row names; column names = sample ids.
 #' @param coverage numeric matrix, same shape as `bulk_editing`, read depth
 #'   (reads covering that site in that sample) at each entry. Use 0 (not a

@@ -35,49 +35,49 @@ possible across cell types).}
 \item{n_deconvolve_samples}{number of realistic MIXED bulk samples to
 simulate for deconvolution (default 900).}
 
-\item{theta_skew, theta_skew_sd, frac_skewed_genes, mu_mode, mu_mean, mu_sd}{passed to `simulate_reference()` -- see its own docs for what each
-controls. `theta_skew_sd` (default 0) is the knob that makes `theta`
+\item{theta_skew, theta_skew_sd, frac_skewed_genes, mu_mode, mu_mean, mu_sd}{passed to \code{simulate_reference()} -- see its own docs for what each
+controls. \code{theta_skew_sd} (default 0) is the knob that makes \code{theta}
 genuinely vary from site to site rather than using one fixed skew
 level everywhere.}
 
-\item{mean_coverage, coverage_dispersion}{passed to `simulate_bulk()`.}
+\item{mean_coverage, coverage_dispersion}{passed to \code{simulate_bulk()}.}
 
 \item{composition}{mean cell-type composition for the deconvolve
 cohort's proportions (default: equal composition across cell types).}
 
-\item{concentration}{Dirichlet concentration for `simulate_proportions()`.}
+\item{concentration}{Dirichlet concentration for \code{simulate_proportions()}.}
 
 \item{seed}{RNG seed (propagated, offset per sub-step, for full
 end-to-end determinism).}
 }
 \value{
 a list:
-  \describe{
-    \item{reference_true}{list(mu,sigma2,theta) -- the oracle ground truth
-      used to generate everything (never given to any deconvolution method).}
-    \item{reference_estimated}{list(mu,sigma2) -- estimated from the
-      `n_reference_samples` purified samples via `estimate_reference_params()`,
-      i.e. what `caRD_edit()` would actually be given in real use.}
-    \item{bulk_editing, coverage}{sites x `n_deconvolve_samples` matrices.}
-    \item{proportions}{`n_deconvolve_samples` x celltypes matrix.}
-    \item{ground_truth}{named list of sites x `n_deconvolve_samples`
-      matrices, one per cell type -- the TRUE per-cell-type editing value
-      for the deconvolve cohort, for scoring each method's `deconvolved` output against.}
-  }
+\describe{
+\item{reference_true}{list(mu,sigma2,theta) -- the oracle ground truth
+used to generate everything (never given to any deconvolution method).}
+\item{reference_estimated}{list(mu,sigma2) -- estimated from the
+\code{n_reference_samples} purified samples via \code{estimate_reference_params()},
+i.e. what \code{caRD_edit()} would actually be given in real use.}
+\item{bulk_editing, coverage}{sites x \code{n_deconvolve_samples} matrices.}
+\item{proportions}{\code{n_deconvolve_samples} x celltypes matrix.}
+\item{ground_truth}{named list of sites x \code{n_deconvolve_samples}
+matrices, one per cell type -- the TRUE per-cell-type editing value
+for the deconvolve cohort, for scoring each method's \code{deconvolved} output against.}
+}
 }
 \description{
-The end-to-end synthetic scenario used in `vignette("caEditR")`: splits a
-single simulated cohort into (1) `n_reference_samples` PURIFIED,
+The end-to-end synthetic scenario used in \code{vignette("caEditR")}: splits a
+single simulated cohort into (1) \code{n_reference_samples} PURIFIED,
 single-cell-type "donor" samples -- as if each were real sorted-cell
-RNA-seq -- fed through `estimate_reference_params()`-style averaging to
+RNA-seq -- fed through \code{estimate_reference_params()}-style averaging to
 build a REAL (estimated, not oracle) caRD-edit reference, and (2)
-`n_deconvolve_samples` realistic MIXED bulk samples with known ground
-truth, for `caRD_edit()`/`caNRD_edit()`/`TCA_Like()` to deconvolve and be
-scored against. Run as ONE subprocess call (`cli_driver.py`'s
-`simulate_reference_and_cohort_full` operation, which performs the exact
+\code{n_deconvolve_samples} realistic MIXED bulk samples with known ground
+truth, for \code{caRD_edit()}/\code{caNRD_edit()}/\code{TCA_Like()} to deconvolve and be
+scored against. Run as ONE subprocess call (\code{cli_driver.py}'s
+\code{simulate_reference_and_cohort_full} operation, which performs the exact
 same steps this function used to orchestrate directly in R) -- every
 actual simulation/estimation step is the same vendored
-`simulate.py`/`core.py` code used everywhere else in this package, no
+\code{simulate.py}/\code{core.py} code used everywhere else in this package, no
 new simulation math.
 }
 \examples{

@@ -59,7 +59,7 @@
 #' (RefSeq/TPM-file lookups); this is the same general formula, usable with
 #' any bulk expression matrix:
 #'
-#'   TPM\\[gene, sample\\] ~= sum_c  proportion\\[sample, c\\] * theta\\[gene, c\\]
+#'   TPM\[gene, sample\] ~= sum_c  proportion\[sample, c\] * theta\[gene, c\]
 #'
 #' solved by non-negative least squares per gene (expression can't be
 #' negative), via the `nnls` package.

@@ -15,11 +15,11 @@
 matrix, samples x celltypes, each row summing to 1.
 }
 \description{
-Identical formula to `compute_effective_weights()`, just computed
+Identical formula to \code{compute_effective_weights()}, just computed
 directly in R (elementwise/row-normalize) instead of one reticulate call
 per sample, purely for speed on large sample x site matrices. This exact
 batching pattern (same formula, vectorized) is already used in the
-parent project's own `figures/fig_canrd_n_sweep_r_squared.py::_phi_batch()`
+parent project's own \verb{figures/fig_canrd_n_sweep_r_squared.py::_phi_batch()}
 -- not new, unvetted math.
 }
 \keyword{internal}

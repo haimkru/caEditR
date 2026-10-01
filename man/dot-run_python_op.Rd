@@ -7,44 +7,44 @@
 .run_python_op(op, args)
 }
 \arguments{
-\item{op}{operation name (matches a key in `cli_driver.py`'s `_OPS` dict).}
+\item{op}{operation name (matches a key in \code{cli_driver.py}'s \verb{_OPS} dict).}
 
 \item{args}{named list of JSON-serializable arguments for that operation.}
 }
 \value{
 the parsed JSON response (as an R list/vector/matrix via
-  `jsonlite::fromJSON`'s automatic simplification).
+\code{jsonlite::fromJSON}'s automatic simplification).
 }
 \description{
 THE CORE DESIGN CHOICE THIS FUNCTION EXISTS TO IMPLEMENT: earlier
 versions of this package called the vendored core.py/no_reference.py/
-simulate.py IN-PROCESS via `reticulate` (Python embedded directly
+simulate.py IN-PROCESS via \code{reticulate} (Python embedded directly
 inside the running R session). That is simpler when it works, but
 fails unpredictably in a long-running R session (e.g. RStudio Server
 left open for a while): R's OWN process may have already loaded an
-incompatible system `libstdc++.so.6` for entirely unrelated reasons
+incompatible system \code{libstdc++.so.6} for entirely unrelated reasons
 (its own C++ dependencies, or another already-loaded R package) before
 this package's code ever runs. Once a shared library with a given name
 is mapped into a process, the dynamic linker reuses that SAME mapping
 for everything else requesting it (e.g. Python's compiled scipy
-extension) -- no `Sys.setenv(LD_LIBRARY_PATH=...)` from anywhere in
+extension) -- no \code{Sys.setenv(LD_LIBRARY_PATH=...)} from anywhere in
 that already-running process can undo this. This is a well-documented,
 repeatedly-reported reticulate failure mode (rstudio/reticulate issues
 #1467, #841, #311, #428), not something fixable purely from R code
 running inside the affected process -- confirmed directly during this
 package's own development (the in-process version worked in a fresh
-`Rscript` call but failed in a long-running interactive session with
+\code{Rscript} call but failed in a long-running interactive session with
 exactly this class of error).
 }
 \details{
 THE FIX: never embed Python inside R's process. Every exported
 function that needs this vendored math spawns a BRAND NEW, short-lived
-Python subprocess (`inst/python/cli_driver.py`) via `system2()`, with
-its OWN environment (including `LD_LIBRARY_PATH`) set explicitly at
+Python subprocess (\code{inst/python/cli_driver.py}) via \code{system2()}, with
+its OWN environment (including \code{LD_LIBRARY_PATH}) set explicitly at
 THAT subprocess's own exec() time -- a genuinely fresh OS process,
 completely unaffected by whatever R's own process has already loaded.
 This fixes the root cause rather than working around a symptom, and
-means `library(caEditR)` plus a direct function call works the same
+means \code{library(caEditR)} plus a direct function call works the same
 way regardless of how long the R session has been running or what
 else has been loaded into it.
 }

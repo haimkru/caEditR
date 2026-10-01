@@ -3,7 +3,7 @@
 #' Thin wrapper around the real `TCA` package's own `tca()` + `tensor()`
 #' (Rahmani et al. 2019) -- NOT a re-implementation.
 #' @param bulk_editing numeric matrix, sites (rows) x samples (columns),
-#'   observed bulk editing ratios in \\[0,1\\].
+#'   observed bulk editing ratios in \[0,1\].
 #' @param proportions numeric matrix, samples (rows) x cell types (columns),
 #'   each row summing to 1 (e.g. from `estimate_proportions_music()`).
 #' @param ... additional arguments passed through to `TCA::tca()` (e.g.

@@ -23,89 +23,89 @@ caNRD_joint_reconstruction(
 )
 }
 \arguments{
-\item{bulk_editing, genotypes, proportions, theta, theta_floor, coverage, min_mean_phi, floor_tol}{as in [caNRD_editQTL()];
-use the same values that produced `fit` (the gating must match). `proportions` x `theta` give the
+\item{bulk_editing, genotypes, proportions, theta, theta_floor, coverage, min_mean_phi, floor_tol}{as in \code{\link[=caNRD_editQTL]{caNRD_editQTL()}};
+use the same values that produced \code{fit} (the gating must match). \code{proportions} x \code{theta} give the
 expression-adjusted RNA contributions \eqn{\phi}; do not pass already expression-adjusted proportions together
-with a non-trivial `theta`.}
+with a non-trivial \code{theta}.}
 
-\item{fit}{output of [caNRD_editQTL()] with exactly one variant per site (fitted without covariates). The donors
+\item{fit}{output of \code{\link[=caNRD_editQTL]{caNRD_editQTL()}} with exactly one variant per site (fitted without covariates). The donors
 reconstructed need not be the donors the fit was estimated on (e.g. held-out donors).}
 
-\item{sigma2}{`"site"` (default): each site's own \eqn{\hat\sigma^2}; `"pooled"`: per-cell-type median over sites.}
+\item{sigma2}{\code{"site"} (default): each site's own \eqn{\hat\sigma^2}; \code{"pooled"}: per-cell-type median over sites.}
 
-\item{boot_fits}{optional list of [caNRD_editQTL()] fits on bootstrap resamples (see [caNRD_editQTL_bootstrap()]).}
+\item{boot_fits}{optional list of \code{\link[=caNRD_editQTL]{caNRD_editQTL()}} fits on bootstrap resamples (see \code{\link[=caNRD_editQTL_bootstrap]{caNRD_editQTL_bootstrap()}}).}
 
 \item{level}{interval level (default 0.95).}
 
 \item{chunk_size}{number of sites processed together (default 1000). Working memory is about
 chunk_size x donors x cell types x ~15 doubles (1000 x 1000 x 4: ~0.5 GB); lower it for many donors.}
 
-\item{out_dir}{optional directory: each chunk's result is saved as `chunk_000001.rds`, ... instead of being kept in
+\item{out_dir}{optional directory: each chunk's result is saved as \code{chunk_000001.rds}, ... instead of being kept in
 memory (for millions of sites).}
 
-\item{write_fn}{optional function `write_fn(chunk_result, chunk_index)` called for every chunk (e.g. to write
-per-cell-type files); takes precedence over `out_dir`'s default writer.}
+\item{write_fn}{optional function \code{write_fn(chunk_result, chunk_index)} called for every chunk (e.g. to write
+per-cell-type files); takes precedence over \code{out_dir}'s default writer.}
 }
 \value{
 list with
-  \item{expected}{named list (one per cell type) of sites x samples matrices \eqn{m_{ih}}}
-  \item{reconstructed}{named list of sites x samples matrices \eqn{\hat Z_{ih}}}
-  \item{conditional_sd}{named list of sites x samples matrices}
-  \item{residual}{sites x samples matrix of bulk residuals \eqn{r_i}}
-  \item{total_sd}{named list of sites x samples matrices (NULL without `boot_fits`)}
-  \item{ci_low, ci_high}{named lists of sites x samples interval bounds}
-  \item{diagnostics}{data.frame per site: `site_id`, `variant_id`, `status` (`"reconstructed"`, or why not:
-    `no_fit`, `not_identifiable`, `fit_not_tested`, `gating_mismatch`), `n_samples`, `n_celltypes`,
-    `frac_out_of_bounds`, `max_vif`, `any_weakly_identifiable`, `tau2_0`, `n_boot_used`}
+\item{expected}{named list (one per cell type) of sites x samples matrices \eqn{m_{ih}}}
+\item{reconstructed}{named list of sites x samples matrices \eqn{\hat Z_{ih}}}
+\item{conditional_sd}{named list of sites x samples matrices}
+\item{residual}{sites x samples matrix of bulk residuals \eqn{r_i}}
+\item{total_sd}{named list of sites x samples matrices (NULL without \code{boot_fits})}
+\item{ci_low, ci_high}{named lists of sites x samples interval bounds}
+\item{diagnostics}{data.frame per site: \code{site_id}, \code{variant_id}, \code{status} (\code{"reconstructed"}, or why not:
+\code{no_fit}, \code{not_identifiable}, \code{fit_not_tested}, \code{gating_mismatch}), \code{n_samples}, \code{n_celltypes},
+\code{frac_out_of_bounds}, \code{max_vif}, \code{any_weakly_identifiable}, \code{tau2_0}, \code{n_boot_used}}
 }
 \description{
-Reconstructs per-donor cell-type editing matrices without cell-type editing references, like [caNRD_edit()], but
-uses the joint genotype effects of a [caNRD_editQTL()] fit so that each site's genetic signal is placed in the cell
+Reconstructs per-donor cell-type editing matrices without cell-type editing references, like \code{\link[=caNRD_edit]{caNRD_edit()}}, but
+uses the joint genotype effects of a \code{\link[=caNRD_editQTL]{caNRD_editQTL()}} fit so that each site's genetic signal is placed in the cell
 types the joint model assigns it to, before the remaining bulk variation is allocated. In a genotype-blind
 reconstruction the bulk residual carries the whole genetic effect and is spread over all cell types in proportion
 to \eqn{\phi_{ih}\sigma^2_h}, so an effect in one cell type appears in the others (leakage) while the affected cell
 type keeps only a small part of it.
 }
 \details{
-For each site (one variant per site, taken from `fit`):
+For each site (one variant per site, taken from \code{fit}):
 \enumerate{
-  \item expected cell-type editing \eqn{m_{ih} = \hat\mu_h + G_i\hat\beta_h} from the fit (same parameterisation as
-    [caNRD_editQTL()]: uncentered dosage, \eqn{\hat\mu_h} = editing at dosage 0; estimated betas are used as they
-    are, non-significant ones are NOT set to zero);
-  \item bulk residual \eqn{r_i = Y_i - \sum_h \phi_{ih} m_{ih}} with
-    \eqn{Var(r_i) = \sum_h \phi_{ih}^2 \hat\sigma^2_h + v_i}, \eqn{v_i = \tilde m_i(1-\tilde m_i)/coverage_i + \hat\tau^2_0}
-    (\eqn{\tilde m_i} the model-predicted bulk level; without coverage \eqn{v_i = \hat\tau^2_0}), the fit's variances;
-  \item conditional (Gaussian, \eqn{\Sigma = diag(\hat\sigma^2)}) reconstruction
-    \eqn{\hat Z_{ih} = m_{ih} + \phi_{ih}\hat\sigma^2_h r_i / (\sum_k \phi_{ik}^2\hat\sigma^2_k + v_i)},
-    with conditional sd \eqn{\sqrt{\hat\sigma^2_h - (\phi_{ih}\hat\sigma^2_h)^2/(\sum_k\phi_{ik}^2\hat\sigma^2_k + v_i)}}
-    (given the parameters; it does not include uncertainty in the fitted parameters).
+\item expected cell-type editing \eqn{m_{ih} = \hat\mu_h + G_i\hat\beta_h} from the fit (same parameterisation as
+\code{\link[=caNRD_editQTL]{caNRD_editQTL()}}: uncentered dosage, \eqn{\hat\mu_h} = editing at dosage 0; estimated betas are used as they
+are, non-significant ones are NOT set to zero);
+\item bulk residual \eqn{r_i = Y_i - \sum_h \phi_{ih} m_{ih}} with
+\eqn{Var(r_i) = \sum_h \phi_{ih}^2 \hat\sigma^2_h + v_i}, \eqn{v_i = \tilde m_i(1-\tilde m_i)/coverage_i + \hat\tau^2_0}
+(\eqn{\tilde m_i} the model-predicted bulk level; without coverage \eqn{v_i = \hat\tau^2_0}), the fit's variances;
+\item conditional (Gaussian, \eqn{\Sigma = diag(\hat\sigma^2)}) reconstruction
+\eqn{\hat Z_{ih} = m_{ih} + \phi_{ih}\hat\sigma^2_h r_i / (\sum_k \phi_{ik}^2\hat\sigma^2_k + v_i)},
+with conditional sd \eqn{\sqrt{\hat\sigma^2_h - (\phi_{ih}\hat\sigma^2_h)^2/(\sum_k\phi_{ik}^2\hat\sigma^2_k + v_i)}}
+(given the parameters; it does not include uncertainty in the fitted parameters).
 }
-Reconstructions are not clipped to \[0, 1\]; the fraction outside is reported per site.
+Reconstructions are not clipped to [0, 1]; the fraction outside is reported per site.
 
 Scaling: the fit is indexed once and sites are processed in chunks, grouped by their set of identifiable cell
 types, with all sites of a group computed together as sites x donors matrices (time linear in the number of sites:
-~1-2 ms per site at 500-1,000 donors and 4 cell types). With `out_dir` or `write_fn` the results are streamed chunk
-by chunk and the function returns only `diagnostics` and a `chunks` table (the matrix elements are NULL).
-For the benchmarked recommended setting, shrink the fit first with [caNRD_editQTL_shrink()].
+~1-2 ms per site at 500-1,000 donors and 4 cell types). With \code{out_dir} or \code{write_fn} the results are streamed chunk
+by chunk and the function returns only \code{diagnostics} and a \code{chunks} table (the matrix elements are NULL).
+For the benchmarked recommended setting, shrink the fit first with \code{\link[=caNRD_editQTL_shrink]{caNRD_editQTL_shrink()}}.
 
-Uncertainty. `conditional_sd` treats the fitted parameters as known and is too narrow (in simulation ~50% coverage of
-nominal 95%): it ignores the estimation noise of \eqn{\hat\mu, \hat\beta, \hat\sigma^2}, and a cell type whose
-\eqn{\hat\sigma^2_h} sits at its floor gets an sd of ~0. Pass `boot_fits` (from [caNRD_editQTL_bootstrap()]) to add
-parameter uncertainty: `total_sd` \eqn{= \sqrt{mean_b (s^{(b)})^2 + var_b(\hat Z^{(b)})}} over the bootstrap fits
-(law of total variance); `ci_low`/`ci_high` use `total_sd` when `boot_fits` is given, `conditional_sd` otherwise.
+Uncertainty. \code{conditional_sd} treats the fitted parameters as known and is too narrow (in simulation ~50\% coverage of
+nominal 95\%): it ignores the estimation noise of \eqn{\hat\mu, \hat\beta, \hat\sigma^2}, and a cell type whose
+\eqn{\hat\sigma^2_h} sits at its floor gets an sd of ~0. Pass \code{boot_fits} (from \code{\link[=caNRD_editQTL_bootstrap]{caNRD_editQTL_bootstrap()}}) to add
+parameter uncertainty: \code{total_sd} \eqn{= \sqrt{mean_b (s^{(b)})^2 + var_b(\hat Z^{(b)})}} over the bootstrap fits
+(law of total variance); \code{ci_low}/\code{ci_high} use \code{total_sd} when \code{boot_fits} is given, \code{conditional_sd} otherwise.
 
-`sigma2 = "pooled"` uses, for every site, each cell type's median \eqn{\hat\sigma^2_h} over the tested sites of the
+\code{sigma2 = "pooled"} uses, for every site, each cell type's median \eqn{\hat\sigma^2_h} over the tested sites of the
 fit in the residual allocation (means, and hence the genetic placement, are unchanged). It assumes cell types have
 similar biological variability across sites.
 
-Accuracy per site depends on the precision of \eqn{\hat\beta} (`se` in the fit): its estimation noise is written
+Accuracy per site depends on the precision of \eqn{\hat\beta} (\code{se} in the fit): its estimation noise is written
 into every cell type's mean; zero on average across sites, but at weak or null sites unaffected cell types carry a
-spurious genotype pattern of about the size of `se`.
+spurious genotype pattern of about the size of \code{se}.
 
 Cautions: the reconstructed matrices contain \eqn{G\hat\beta}, so regressing them on the same genotype again is
-circular and is not independent evidence of an edQTL (use [caNRD_editQTL()] for testing). The estimated betas carry
+circular and is not independent evidence of an edQTL (use \code{\link[=caNRD_editQTL]{caNRD_editQTL()}} for testing). The estimated betas carry
 estimation noise into every cell type (on average zero, but not zero at each site). Cell types with similar
-\eqn{\phi} profiles remain hard to separate (`weakly_identifiable` in the fit).
+\eqn{\phi} profiles remain hard to separate (\code{weakly_identifiable} in the fit).
 }
 \examples{
 set.seed(3)

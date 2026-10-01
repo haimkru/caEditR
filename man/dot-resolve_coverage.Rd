@@ -2,10 +2,10 @@
 % Please edit documentation in R/genome_annotation.R
 \name{.resolve_coverage}
 \alias{.resolve_coverage}
-\title{Resolve the `coverage` argument shared by `caRD_edit()`/`caNRD_edit()`:
+\title{Resolve the \code{coverage} argument shared by \code{caRD_edit()}/\code{caNRD_edit()}:
 either the caller supplied a real coverage matrix directly (preferred,
-returned as-is), or supplied `expression` instead, in which case
-`build_coverage_from_expression()` derives one -- the ONE place this
+returned as-is), or supplied \code{expression} instead, in which case
+\code{build_coverage_from_expression()} derives one -- the ONE place this
 fallback logic lives, used by both functions, not duplicated per caller.}
 \usage{
 .resolve_coverage(
@@ -18,10 +18,10 @@ fallback logic lives, used by both functions, not duplicated per caller.}
 )
 }
 \description{
-Resolve the `coverage` argument shared by `caRD_edit()`/`caNRD_edit()`:
+Resolve the \code{coverage} argument shared by \code{caRD_edit()}/\code{caNRD_edit()}:
 either the caller supplied a real coverage matrix directly (preferred,
-returned as-is), or supplied `expression` instead, in which case
-`build_coverage_from_expression()` derives one -- the ONE place this
+returned as-is), or supplied \code{expression} instead, in which case
+\code{build_coverage_from_expression()} derives one -- the ONE place this
 fallback logic lives, used by both functions, not duplicated per caller.
 }
 \keyword{internal}

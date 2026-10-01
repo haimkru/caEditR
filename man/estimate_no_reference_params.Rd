@@ -18,7 +18,7 @@ estimate_no_reference_params(
 \item{e_bulk}{numeric vector, length N, observed bulk editing ratio per sample.}
 
 \item{phi}{numeric matrix, N x C, each row an effective mixing weight
-vector (sums to 1) -- see `compute_effective_weights()`.}
+vector (sums to 1) -- see \code{compute_effective_weights()}.}
 
 \item{tau2}{numeric vector, length N, measurement-noise variance per sample.}
 
@@ -35,12 +35,12 @@ ill-conditioning (default 0.0 = off, exact historical behavior).}
 }
 \value{
 a list: mu_hat, sigma2_hat, sigma2_raw, n_samples, n_celltypes,
-  n_to_c_ratio, marginal_n, condition_number, sigma2_floor_hit.
+n_to_c_ratio, marginal_n, condition_number, sigma2_floor_hit.
 }
 \description{
 Thin wrapper around the vendored, unmodified
-`no_reference.estimate_no_reference_params` (Python, run in a fresh
-subprocess -- see `.run_python_op()`) -- caNRD-edit's core estimator.
+\code{no_reference.estimate_no_reference_params} (Python, run in a fresh
+subprocess -- see \code{.run_python_op()}) -- caNRD-edit's core estimator.
 it uses a refrence to derive for a sample whats its cell type specific RNA editing levels
 }
 \examples{

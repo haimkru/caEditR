@@ -25,121 +25,121 @@ caRD_edit(
 }
 \arguments{
 \item{bulk_editing}{numeric matrix, sites (rows) x samples (columns),
-observed bulk editing ratios in \\[0,1\\]. Row names = site ids, must
-match `reference`'s row names; column names = sample ids.}
+observed bulk editing ratios in [0,1]. Row names = site ids, must
+match \code{reference}'s row names; column names = sample ids.}
 
-\item{coverage}{numeric matrix, same shape as `bulk_editing`, read depth
+\item{coverage}{numeric matrix, same shape as \code{bulk_editing}, read depth
 (reads covering that site in that sample) at each entry. Use 0 (not a
 small positive placeholder) for "no reads at all" -- see
-`core.deconvolve`'s own docstring for why a placeholder biases the
+\code{core.deconvolve}'s own docstring for why a placeholder biases the
 estimate. Supply EITHER this (preferred, when you have real per-site
-coverage) OR `expression` below (not both -- if both are given,
-`coverage` wins and `expression` is ignored, with a `message()`
+coverage) OR \code{expression} below (not both -- if both are given,
+\code{coverage} wins and \code{expression} is ignored, with a \code{message()}
 saying so).}
 
 \item{proportions}{numeric matrix, samples (rows) x cell types (columns),
-each row summing to 1 (e.g. from `estimate_proportions_music()`).}
+each row summing to 1 (e.g. from \code{estimate_proportions_music()}).}
 
 \item{reference}{a list(mu, sigma2, theta), each a sites x celltypes
-matrix (e.g. from `load_reference()`).}
+matrix (e.g. from \code{load_reference()}).}
 
 \item{min_coverage}{sites/samples with coverage below this are still
-deconvolved but flagged in the `low_coverage` output (default 10).}
+deconvolved but flagged in the \code{low_coverage} output (default 10).}
 
-\item{theta_floor}{the floor value used when `reference$theta` was
-estimated (e.g. `estimate_theta_nnls()`'s own `floor` argument,
-default `1e-3`). If `NULL` (default), auto-detected as the single most
-frequent value in `reference$theta`.}
+\item{theta_floor}{the floor value used when \code{reference$theta} was
+estimated (e.g. \code{estimate_theta_nnls()}'s own \code{floor} argument,
+default \code{1e-3}). If \code{NULL} (default), auto-detected as the single most
+frequent value in \code{reference$theta}.}
 
 \item{floor_tol}{absolute tolerance for "at the floor" (default: the
-smaller of `1e-9` and `theta_floor / 1e6`).}
+smaller of \code{1e-9} and \code{theta_floor / 1e6}).}
 
 \item{min_identifiable_celltypes}{minimum number of non-floor,
 non-negligible cell types a site needs to attempt deconvolution at all
 (default 1 -- a site where only ONE cell type carries real signal
 still gets a genuine, meaningful estimate for that one cell type).}
 
-\item{min_mean_phi}{minimum mean effective mixing weight (`phi`, see
-`compute_effective_weights()`) a cell type must carry, averaged across
-samples, to be considered identifiable at a site (default `0.10`) --
-see `caNRD_edit()`'s own docs for the full justification (confirmed
+\item{min_mean_phi}{minimum mean effective mixing weight (\code{phi}, see
+\code{compute_effective_weights()}) a cell type must carry, averaged across
+samples, to be considered identifiable at a site (default \code{0.10}) --
+see \code{caNRD_edit()}'s own docs for the full justification (confirmed
 directly, in that context, that phi in the 1-10\% range still only
 reaches correlation -0.06 to 0.17 with known ground truth).}
 
 \item{boundary_tiny_tol, boundary_clip_tol}{same three-way boundary
-handling as `caNRD_edit()` (defaults `0.01`/`0.05`): estimates within
-`boundary_tiny_tol` of `[0,1]` are left untouched (expected estimator
-noise), estimates further out but still within `boundary_clip_tol` are
-clipped to the boundary, and anything beyond that is set to `NA`
+handling as \code{caNRD_edit()} (defaults \code{0.01}/\code{0.05}): estimates within
+\code{boundary_tiny_tol} of \verb{[0,1]} are left untouched (expected estimator
+noise), estimates further out but still within \code{boundary_clip_tol} are
+clipped to the boundary, and anything beyond that is set to \code{NA}
 rather than clipped.}
 
 \item{expression}{numeric matrix, genes (rows, Ensembl gene ids) x
-samples (columns) -- if `coverage` isn't supplied, this is used
+samples (columns) -- if \code{coverage} isn't supplied, this is used
 instead to derive one automatically via
-`build_coverage_from_expression()` (see its own docs for how; this is
-an APPROXIMATION, not real read coverage -- prefer real `coverage`
+\code{build_coverage_from_expression()} (see its own docs for how; this is
+an APPROXIMATION, not real read coverage -- prefer real \code{coverage}
 whenever you have it).}
 
-\item{genome}{`"hg19"` or `"hg38"` -- which build `bulk_editing`'s
+\item{genome}{\code{"hg19"} or \code{"hg38"} -- which build \code{bulk_editing}'s
 (row-name) site coordinates are on. Only used when deriving coverage
-from `expression`.}
+from \code{expression}.}
 
 \item{coverage_scale, unmapped_floor}{passed to
-`build_coverage_from_expression()` when deriving coverage from `expression`.}
+\code{build_coverage_from_expression()} when deriving coverage from \code{expression}.}
 }
 \value{
-a list with the same shape as `caRDv0_edit()`'s return
-  (`deconvolved`, `low_coverage`), plus a new `diagnostics` data.frame
-  (one row per site: `n_identifiable_celltypes`, `excluded_celltypes`,
-  `status`) that `caRDv0_edit()` never provided at all.
+a list with the same shape as \code{caRDv0_edit()}'s return
+(\code{deconvolved}, \code{low_coverage}), plus a new \code{diagnostics} data.frame
+(one row per site: \code{n_identifiable_celltypes}, \code{excluded_celltypes},
+\code{status}) that \code{caRDv0_edit()} never provided at all.
 }
 \description{
-Reference-based sibling of `caNRD_edit()`. Deconvolves a bulk RNA-editing
+Reference-based sibling of \code{caNRD_edit()}. Deconvolves a bulk RNA-editing
 ratio matrix into per-cell-type estimates using a REAL sorted-cell-derived
 reference.
 }
 \details{
 A methodology-level fix for the same real failure mode diagnosed in
-`caNRD_edit()`, confirmed to also be present in this package's own
-bundled real reference: when `reference$theta` comes from an estimation
-process with a floor (e.g. `estimate_theta_nnls()`'s own `floor`
+\code{caNRD_edit()}, confirmed to also be present in this package's own
+bundled real reference: when \code{reference$theta} comes from an estimation
+process with a floor (e.g. \code{estimate_theta_nnls()}'s own \code{floor}
 argument), "the estimator could not tell this cell type's expression
 apart from zero" and "a precisely measured, genuinely tiny contribution"
-get silently encoded as the exact same number, which `caRDv0_edit()`
+get silently encoded as the exact same number, which \code{caRDv0_edit()}
 then uses as if it were a real, precise weight. Checked directly:
-`reference_theta.csv` (the bundled real GSE60424-derived reference used
-by `load_reference()`) has 4.5% of its entries sitting exactly at the
-`0.001` estimation floor, and its 99th-percentile per-site max/min theta
+\code{reference_theta.csv} (the bundled real GSE60424-derived reference used
+by \code{load_reference()}) has 4.5\% of its entries sitting exactly at the
+\code{0.001} estimation floor, and its 99th-percentile per-site max/min theta
 ratio reaches ~24,700x -- the same mechanism, present in real shipped
 data, not a hypothetical concern.
 
-This is not a numerical bug in `caRDv0_edit()`'s solver, and it is not
-specific to self-estimation (`caRD_edit()` uses a real, externally
-supplied `mu`/`sigma2` reference, not a self-estimated one) -- the
-identifiability problem lives entirely in `theta` and the effective
-mixing weight (`phi = normalize(proportions * theta)`) it produces,
-which both `caRD_edit()` and `caNRD_edit()` share via the same
-underlying `deconvolve_site()`/`core.deconvolve()` formula. Feeding that
+This is not a numerical bug in \code{caRDv0_edit()}'s solver, and it is not
+specific to self-estimation (\code{caRD_edit()} uses a real, externally
+supplied \code{mu}/\code{sigma2} reference, not a self-estimated one) -- the
+identifiability problem lives entirely in \code{theta} and the effective
+mixing weight (\code{phi = normalize(proportions * theta)}) it produces,
+which both \code{caRD_edit()} and \code{caNRD_edit()} share via the same
+underlying \code{deconvolve_site()}/\code{core.deconvolve()} formula. Feeding that
 formula physically implausible weights and asking it to separate a cell
 type with no real signal will produce a numerically degenerate estimate
-regardless of how good the reference `mu`/`sigma2` are.
+regardless of how good the reference \code{mu}/\code{sigma2} are.
 
 This function's fix runs before the regression, identically to
-`caNRD_edit()`: for every site, any cell type whose theta is at (or
-within `floor_tol` of) the floor, OR whose mean effective mixing weight
-(`phi`) across samples is below `min_mean_phi`, is treated as "not
+\code{caNRD_edit()}: for every site, any cell type whose theta is at (or
+within \code{floor_tol} of) the floor, OR whose mean effective mixing weight
+(\code{phi}) across samples is below \code{min_mean_phi}, is treated as "not
 identifiable from this bulk data" and dropped from that site's design
 entirely (never fed in as a tiny-but-nonzero weight); the remaining
 cell types' proportions are renormalized to sum to one, and
-`caRDv0_edit()` is called on this reduced system instead. Sites where
-fewer than `min_identifiable_celltypes` cell types survive are reported
-as `NA` rather than as a numerically unstable guess. Unlike
-`caNRD_edit()`, there is no separate `max_condition_number` gate here --
+\code{caRDv0_edit()} is called on this reduced system instead. Sites where
+fewer than \code{min_identifiable_celltypes} cell types survive are reported
+as \code{NA} rather than as a numerically unstable guess. Unlike
+\code{caNRD_edit()}, there is no separate \code{max_condition_number} gate here --
 confirmed on real data that gate rarely ever fires once the floor and
 phi gates are applied, so it isn't worth the added complexity for the
 reference-based case.
 
-`caRDv0_edit()` (the original, ungated estimator) remains fully
+\code{caRDv0_edit()} (the original, ungated estimator) remains fully
 available and unchanged for anyone who specifically wants that behavior
 (e.g. to reproduce old results).
 }

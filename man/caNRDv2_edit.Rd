@@ -2,7 +2,7 @@
 % Please edit documentation in R/caNRDv2_edit.R
 \name{caNRDv2_edit}
 \alias{caNRDv2_edit}
-\title{caNRDv2-edit (deprecated alias of `caNRDv0.5_edit()`)}
+\title{caNRDv2-edit (deprecated alias of \code{caNRDv0.5_edit()})}
 \usage{
 caNRDv2_edit(
   bulk_editing,
@@ -27,28 +27,28 @@ caNRDv2_edit(
 }
 \arguments{
 \item{bulk_editing}{numeric matrix, sites (rows) x samples (columns),
-observed bulk editing ratios in \\[0,1\\].}
+observed bulk editing ratios in [0,1].}
 
-\item{coverage}{numeric matrix, same shape as `bulk_editing`. Supply
+\item{coverage}{numeric matrix, same shape as \code{bulk_editing}. Supply
 EITHER this (preferred, when you have real per-site coverage) OR
-`expression` below (not both -- if both are given, `coverage` wins
-and `expression` is ignored, with a `message()` saying so).}
+\code{expression} below (not both -- if both are given, \code{coverage} wins
+and \code{expression} is ignored, with a \code{message()} saying so).}
 
 \item{proportions}{numeric matrix, samples (rows) x cell types (columns).}
 
 \item{theta}{numeric matrix, sites (rows) x cell types (columns),
-relative expression weight (e.g. from `estimate_theta_nnls()`).}
+relative expression weight (e.g. from \code{estimate_theta_nnls()}).}
 
-\item{theta_floor}{the floor value used when `theta` was estimated (e.g.
-`estimate_theta_nnls()`'s own `floor` argument, default `1e-3`). If
-`NULL` (default), auto-detected as the single most frequent value in
-`theta` -- robust whenever the floor was applied uniformly, which is
+\item{theta_floor}{the floor value used when \code{theta} was estimated (e.g.
+\code{estimate_theta_nnls()}'s own \code{floor} argument, default \code{1e-3}). If
+\code{NULL} (default), auto-detected as the single most frequent value in
+\code{theta} -- robust whenever the floor was applied uniformly, which is
 exactly the failure mode this function targets (a real, unclamped
 theta landscape essentially never has one exact value repeated across
 a large fraction of entries).}
 
 \item{floor_tol}{absolute tolerance for "at the floor" (default: the
-smaller of `1e-9` and `theta_floor / 1e6` -- tight enough to only
+smaller of \code{1e-9} and \code{theta_floor / 1e6} -- tight enough to only
 catch exact/near-exact floor clamping, not genuinely small but
 distinct real values).}
 
@@ -59,9 +59,9 @@ meaningful estimate for that one cell type, attributing the full bulk
 signal to it; set to 2 to require at least two cell types to attempt
 any separation at all).}
 
-\item{min_mean_phi}{minimum mean effective mixing weight (`phi`, see
-`compute_effective_weights()`) a cell type must carry, averaged across
-samples, to be considered identifiable at a site (default `0.10`).
+\item{min_mean_phi}{minimum mean effective mixing weight (\code{phi}, see
+\code{compute_effective_weights()}) a cell type must carry, averaged across
+samples, to be considered identifiable at a site (default \code{0.10}).
 Not being at the floor is necessary but not sufficient: a cell type
 whose theta is merely 100x smaller than another's at a site can still
 contribute a negligible (~1\%) share of the bulk mixture, and its
@@ -70,90 +70,90 @@ directly not to improve with more samples or more coverage, unlike a
 genuinely shared (e.g. ~50/50) mixture, which does carry real,
 moderate signal for both cell types even though neither dominates.
 This gate targets that specific "negligible share" failure mode
-directly, rather than relying on `max_condition_number` (a
-whole-system statistic) to catch it indirectly -- a high-`phi`
-dominant cell type and a low-`phi` minority one can coexist in a
+directly, rather than relying on \code{max_condition_number} (a
+whole-system statistic) to catch it indirectly -- a high-\code{phi}
+dominant cell type and a low-\code{phi} minority one can coexist in a
 system whose overall condition number looks fine. A direct
 calibration (phi vs. correlation with known ground truth; see
 figures/scripts_more_datasets/fig_phi_signal_ceiling.R in the parent
 catca-edit-hpc project) found phi in the 1-10\% range still only
 reaches cor -0.06 to 0.17 with truth -- essentially noise, not clean
 signal, and confirmed not to improve with more samples or coverage.
-Lower to `0.01` to only screen out the clearly-worse-than-random tail
+Lower to \code{0.01} to only screen out the clearly-worse-than-random tail
 (phi<~1\%) and retain that noisier 1-10\% range instead.}
 
 \item{max_condition_number}{a second QC gate applied AFTER the
-floor-based reduction (default `1e4`, caEditR's own documented rule of
+floor-based reduction (default \code{1e4}, caEditR's own documented rule of
 thumb for "trust much more under this"). Excluding floor-clamped cell
 types fixes the single dominant artifact, but two genuinely
 non-floor cell types can still be badly imbalanced relative to each
 other at a site (confirmed directly: a hand-built test scenario found
 reduced-system condition numbers still reaching 1e7 even after
-floor-exclusion). Any site whose reduced system's `condition_number`
+floor-exclusion). Any site whose reduced system's \code{condition_number}
 still exceeds this is set to \code{NA} rather than trusted, with
-`status = "reduced_system_still_unstable"`. Set to `Inf` to disable
+\code{status = "reduced_system_still_unstable"}. Set to \code{Inf} to disable
 this second gate and keep every floor-reduced estimate.}
 
-\item{boundary_tiny_tol}{estimates that land just outside `[0,1]` by no
-more than this (default `0.01`) are left completely untouched -- not
+\item{boundary_tiny_tol}{estimates that land just outside \verb{[0,1]} by no
+more than this (default \code{0.01}) are left completely untouched -- not
 clipped, not excluded. This is deliberate, not an oversight: a small
 negative (or >1) value from a continuous estimator applied to a
-\[0,1\]-bounded true parameter is expected, healthy boundary noise,
+[0,1]-bounded true parameter is expected, healthy boundary noise,
 and a useful signal that the estimator is actually running
 (unclamped) rather than artificially forced into range. Confirmed
 directly on a real genome-wide run: 86-100\% of all remaining negative
 estimates (per cell type), after the three identifiability gates
 above, already fall within this tolerance.}
 
-\item{boundary_clip_tol}{estimates beyond `boundary_tiny_tol` but still
-within this of `[0,1]` (default `0.05`) ARE clipped to the boundary --
+\item{boundary_clip_tol}{estimates beyond \code{boundary_tiny_tol} but still
+within this of \verb{[0,1]} (default \code{0.05}) ARE clipped to the boundary --
 large enough to be worth correcting, still small enough that clipping
 is a reasonable boundary-projection rather than a cover-up. Estimates
-beyond `boundary_clip_tol` are set to `NA` instead -- clipping a -3.9
-to 0 (`caNRDv0_edit()`'s actual pathological failures reached -18 to
+beyond \code{boundary_clip_tol} are set to \code{NA} instead -- clipping a -3.9
+to 0 (\code{caNRDv0_edit()}'s actual pathological failures reached -18 to
 -1e5; nothing at that scale survives the identifiability gates, but
 occasional moderate outliers around -2 to -4 do) would silently paper
 over genuine remaining instability rather than correct boundary noise.
-Set equal to `boundary_tiny_tol` to disable clipping and only exclude.}
+Set equal to \code{boundary_tiny_tol} to disable clipping and only exclude.}
 
-\item{min_coverage}{passed through to `core.CaTCAConfig` (default 10).}
+\item{min_coverage}{passed through to \code{core.CaTCAConfig} (default 10).}
 
-\item{iterative}{whether `estimate_no_reference_params()` uses its
+\item{iterative}{whether \code{estimate_no_reference_params()} uses its
 TCA-inspired iterative reweighting refinement (see its own docs for
-the full math). Defaults to `TRUE` here -- deliberately DIFFERENT from
-the underlying Python function's own default of `FALSE` (which exists
+the full math). Defaults to \code{TRUE} here -- deliberately DIFFERENT from
+the underlying Python function's own default of \code{FALSE} (which exists
 only to keep the parent project's OTHER, already-published figures
 numerically unchanged; that constraint doesn't apply to this fresh R
 package). This is not a cosmetic choice: in this project's own
 validated 1000-sample, 3-method comparison
-(`figures/fig_4way_method_comparison.py`), `iterative=FALSE` gives
-caNRD-edit r=0.312 (WORSE than TCA's 0.546), while `iterative=TRUE`
+(\code{figures/fig_4way_method_comparison.py}), \code{iterative=FALSE} gives
+caNRD-edit r=0.312 (WORSE than TCA's 0.546), while \code{iterative=TRUE}
 gives r=0.595 (clearly better than TCA) -- i.e. leaving this at its
 Python default silently reproduces a known-inferior configuration.
-Set `iterative = FALSE` only to reproduce that older, weaker behavior.}
+Set \code{iterative = FALSE} only to reproduce that older, weaker behavior.}
 
 \item{expression}{numeric matrix, genes (rows, Ensembl gene ids) x
-samples (columns) -- if `coverage` isn't supplied, this is used
+samples (columns) -- if \code{coverage} isn't supplied, this is used
 instead to derive one automatically via
-`build_coverage_from_expression()` (an APPROXIMATION, not real read
-coverage -- prefer real `coverage` whenever you have it).}
+\code{build_coverage_from_expression()} (an APPROXIMATION, not real read
+coverage -- prefer real \code{coverage} whenever you have it).}
 
-\item{genome}{`"hg19"` or `"hg38"` -- which build `bulk_editing`'s
+\item{genome}{\code{"hg19"} or \code{"hg38"} -- which build \code{bulk_editing}'s
 (row-name) site coordinates are on. Only used when deriving coverage
-from `expression`.}
+from \code{expression}.}
 
 \item{coverage_scale, unmapped_floor}{passed to
-`build_coverage_from_expression()` when deriving coverage from `expression`.}
+\code{build_coverage_from_expression()} when deriving coverage from \code{expression}.}
 
-\item{...}{additional arguments passed to `estimate_no_reference_params()`
-(e.g. `iterative`, `ridge_frac`).}
+\item{...}{additional arguments passed to \code{estimate_no_reference_params()}
+(e.g. \code{iterative}, \code{ridge_frac}).}
 }
 \value{
-identical to `caNRDv0.5_edit()`'s return.
+identical to \code{caNRDv0.5_edit()}'s return.
 }
 \description{
-`caNRDv2_edit()` was the gated implementation that became `caNRD_edit()`; since caEditR 0.99.3 that estimator is
-preserved as [caNRDv0.5_edit()] and `caNRD_edit()` uses the variance-fixed maximum-likelihood estimator. This alias
+\code{caNRDv2_edit()} was the gated implementation that became \code{caNRD_edit()}; since caEditR 0.99.3 that estimator is
+preserved as \code{\link[=caNRDv0.5_edit]{caNRDv0.5_edit()}} and \code{caNRD_edit()} uses the variance-fixed maximum-likelihood estimator. This alias
 keeps pointing at the same gated, observed-noise estimator it always meant, so existing scripts reproduce their
-results. New code should call [caNRD_edit()].
+results. New code should call \code{\link[=caNRD_edit]{caNRD_edit()}}.
 }

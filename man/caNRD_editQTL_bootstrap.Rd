@@ -19,19 +19,19 @@ caNRD_editQTL_bootstrap(
 }
 \arguments{
 \item{bulk_editing}{numeric matrix, sites (rows, named) x samples (columns, named), observed bulk ratios in
-\\[0,1\\]; `NA` allowed.}
+[0,1]; \code{NA} allowed.}
 
-\item{genotypes}{numeric matrix, variants (rows, named) x samples (columns, named), dosages in \\[0,2\\].}
+\item{genotypes}{numeric matrix, variants (rows, named) x samples (columns, named), dosages in [0,2].}
 
 \item{proportions}{numeric matrix, samples (rows, named) x cell types (columns, named), rows summing to 1.}
 
 \item{theta}{numeric matrix, sites (rows) x cell types (columns), per-site relative expression of the host
-gene (as used by `caNRD_edit()`).}
+gene (as used by \code{caNRD_edit()}).}
 
-\item{theta_floor}{the floor used when `theta` was estimated (e.g. `estimate_theta_nnls()`'s `floor`, default
+\item{theta_floor}{the floor used when \code{theta} was estimated (e.g. \code{estimate_theta_nnls()}'s \code{floor}, default
 there 1e-3); theta at the floor means "not expressed". REQUIRED -- pass 0 for true (unfloored) theta.}
 
-\item{pairs}{optional data.frame with columns `site_id`, `variant_id` listing the (site, variant) pairs to test;
+\item{pairs}{optional data.frame with columns \code{site_id}, \code{variant_id} listing the (site, variant) pairs to test;
 default all sites x all variants.}
 
 \item{coverage}{optional sites x samples matrix of read coverage (with dimnames). Strongly recommended: it gives the
@@ -41,12 +41,12 @@ binomial sampling variance. Without it the model is TCA's (a single extra-noise 
 
 \item{seed}{optional random seed.}
 
-\item{...}{further arguments to [caNRD_editQTL()] (e.g. `min_mean_phi`, `engine`).}
+\item{...}{further arguments to \code{\link[=caNRD_editQTL]{caNRD_editQTL()}} (e.g. \code{min_mean_phi}, \code{engine}).}
 }
 \value{
-list of `n_boot` data.frames as returned by [caNRD_editQTL()].
+list of \code{n_boot} data.frames as returned by \code{\link[=caNRD_editQTL]{caNRD_editQTL()}}.
 }
 \description{
-Refits [caNRD_editQTL()] on `n_boot` resamples of the donors (with replacement). Pass the result as `boot_fits` to
-[caNRD_joint_reconstruction()] to include parameter uncertainty in its intervals.
+Refits \code{\link[=caNRD_editQTL]{caNRD_editQTL()}} on \code{n_boot} resamples of the donors (with replacement). Pass the result as \code{boot_fits} to
+\code{\link[=caNRD_joint_reconstruction]{caNRD_joint_reconstruction()}} to include parameter uncertainty in its intervals.
 }

@@ -23,54 +23,54 @@ celltype_edqtl(
 }
 \arguments{
 \item{bulk_editing}{numeric matrix, sites (rows, named) x samples (columns, named), observed bulk ratios in
-\\[0,1\\]; `NA` allowed.}
+[0,1]; \code{NA} allowed.}
 
-\item{genotypes}{numeric matrix, variants (rows, named) x samples (columns, named), dosages in \\[0,2\\].}
+\item{genotypes}{numeric matrix, variants (rows, named) x samples (columns, named), dosages in [0,2].}
 
 \item{proportions}{numeric matrix, samples (rows, named) x cell types (columns, named), rows summing to 1.}
 
 \item{theta}{numeric matrix, sites (rows) x cell types (columns), per-site relative expression of the host
-gene (as used by `caNRD_edit()`).}
+gene (as used by \code{caNRD_edit()}).}
 
-\item{theta_floor}{the floor used when `theta` was estimated (e.g. `estimate_theta_nnls()`'s `floor`, default
+\item{theta_floor}{the floor used when \code{theta} was estimated (e.g. \code{estimate_theta_nnls()}'s \code{floor}, default
 there 1e-3); theta at the floor means "not expressed". REQUIRED -- pass 0 for true (unfloored) theta.}
 
-\item{pairs}{optional data.frame with columns `site_id`, `variant_id` listing the (site, variant) pairs to test;
+\item{pairs}{optional data.frame with columns \code{site_id}, \code{variant_id} listing the (site, variant) pairs to test;
 default all sites x all variants.}
 
-\item{coverage}{optional numeric matrix like `bulk_editing` with read depth; `NULL` = equal depth for all
+\item{coverage}{optional numeric matrix like \code{bulk_editing} with read depth; \code{NULL} = equal depth for all
 samples (only relative weights matter).}
 
 \item{covariates}{optional numeric matrix, samples (rows, named) x covariates.}
 
 \item{min_mean_phi}{minimum mean effective weight for a cell type to be tested (default 0.10, as in
-`caNRD_edit()`).}
+\code{caNRD_edit()}).}
 
 \item{floor_tol}{tolerance for "at the floor" (default: smaller of 1e-9 and theta_floor / 1e6).}
 
 \item{min_samples}{minimum number of usable samples per test (default 30).}
 
 \item{min_minor_allele_samples}{minimum number of samples carrying the minor allele (default 10, as tensorQTL's
-`ma_sample_threshold` in this project's edQTL runs); below it the test is skipped with
-`status = "too_few_minor_allele_samples"`.}
+\code{ma_sample_threshold} in this project's edQTL runs); below it the test is skipped with
+\code{status = "too_few_minor_allele_samples"}.}
 
 \item{max_iter, tol}{IRLS iteration limit and convergence tolerance on the coefficients.}
 }
 \value{
-data.frame with one row per (site, variant, cell type): `site_id`, `variant_id`, `celltype`, `status`
-  (`"tested"`; not tested: `"not_identifiable"` (gated), `"too_few_samples"`, `"monomorphic_variant"`,
-  `"too_few_minor_allele_samples"`, `"no_variation_in_bulk"`, `"aliased"` (weights collinear with another cell type)), `beta` (per-allele change in the cell type's editing ratio), `se`,
-  `t`, `p`, `mu` (baseline editing of the cell type at genotype 0), `mean_phi`, `n_samples`, `n_celltypes`
-  (identifiable cell types in the model), `dispersion`, `extra_variance` (estimated \eqn{s^2}), `iterations`,
-  `converged` (IRLS reached `tol` within `max_iter`), `n_minor_allele_samples`.
+data.frame with one row per (site, variant, cell type): \code{site_id}, \code{variant_id}, \code{celltype}, \code{status}
+(\code{"tested"}; not tested: \code{"not_identifiable"} (gated), \code{"too_few_samples"}, \code{"monomorphic_variant"},
+\code{"too_few_minor_allele_samples"}, \code{"no_variation_in_bulk"}, \code{"aliased"} (weights collinear with another cell type)), \code{beta} (per-allele change in the cell type's editing ratio), \code{se},
+\code{t}, \code{p}, \code{mu} (baseline editing of the cell type at genotype 0), \code{mean_phi}, \code{n_samples}, \code{n_celltypes}
+(identifiable cell types in the model), \code{dispersion}, \code{extra_variance} (estimated \eqn{s^2}), \code{iterations},
+\code{converged} (IRLS reached \code{tol} within \code{max_iter}), \code{n_minor_allele_samples}.
 }
 \description{
 Tests whether a genetic variant changes RNA editing in each cell type, using the bulk editing ratios and
 the same mixture model caNRD-edit is built on, instead of testing per-sample deconvolved estimates. For
 one site and one variant the model is
 \deqn{E[bulk_i] = \sum_c \phi_{ic} (\mu_c + \beta_c g_i) + \gamma' x_i}
-where \eqn{\phi_{ic}} is sample i's effective mixing weight of cell type c (`normalize(p * theta)`, as in
-`compute_effective_weights()`), \eqn{g_i} the genotype dosage, \eqn{\mu_c} the cell type's baseline editing,
+where \eqn{\phi_{ic}} is sample i's effective mixing weight of cell type c (\code{normalize(p * theta)}, as in
+\code{compute_effective_weights()}), \eqn{g_i} the genotype dosage, \eqn{\mu_c} the cell type's baseline editing,
 \eqn{\beta_c} its per-allele edQTL effect and \eqn{x_i} optional (centered) covariates. There is no separate
 intercept: \eqn{\sum_c \phi_{ic} = 1} plays that role. The model is fitted by iteratively reweighted least
 squares with weights \eqn{w_i = 1 / (m_i (1 - m_i) / coverage_i + s^2)}: binomial read-sampling noise computed
@@ -80,10 +80,10 @@ Standard error of each \eqn{\beta_c} = the larger of the model-based and HC3 san
 misspecification and conservative for rare variants); t-test.
 }
 \details{
-Limitations: (1) misattribution grows with error in `theta` -- in simulation, theta off by ~2x was harmless but
+Limitations: (1) misattribution grows with error in \code{theta} -- in simulation, theta off by ~2x was harmless but
 ~4x produced 15\% cross-cell-type calls at p < 1e-3; (2) by construction, a genotype effect located in a cell type that is NOT in the model (gated out,
-or absent from `proportions`) still changes bulk editing and can be partly attributed to the modeled cell types;
-(3) population structure: include genotype PCs in `covariates` (omitting a confounder inflated false positives).
+or absent from \code{proportions}) still changes bulk editing and can be partly attributed to the modeled cell types;
+(3) population structure: include genotype PCs in \code{covariates} (omitting a confounder inflated false positives).
 Samples with missing covariates or coverage are dropped.
 
 Why not test per-sample deconvolved estimates? Because each sample contributes a single bulk value, a per-sample
@@ -95,8 +95,8 @@ theta) this test kept the false-positive rate in cell types without an effect at
 p < 1e-3, vs. 56-63\% for per-sample estimates) and recovered effect sizes (median 0.85-1.04 of the truth), with
 somewhat lower power than per-sample testing (roughly 80-90\% of it).
 
-Cell types are gated exactly like `caNRD_edit()` (theta at the floor, or mean phi below `min_mean_phi`, are
-excluded at that site) and are reported with `status = "not_identifiable"`. Samples with a missing bulk ratio
+Cell types are gated exactly like \code{caNRD_edit()} (theta at the floor, or mean phi below \code{min_mean_phi}, are
+excluded at that site) and are reported with \code{status = "not_identifiable"}. Samples with a missing bulk ratio
 or genotype, and samples whose proportions for all identifiable cell types are zero (their renormalized
 composition is undefined), are dropped for that site.
 }

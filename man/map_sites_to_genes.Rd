@@ -8,35 +8,35 @@ map_sites_to_genes(site_ids, genome = c("hg19", "hg38"))
 }
 \arguments{
 \item{site_ids}{character vector of standardized caEditR site ids --
-`"chrom:pos"` or `"chrom:pos:strand"` (e.g. `"10:100232436:-"`; see
-`format_site_id()` for the canonical way to construct these).
+\code{"chrom:pos"} or \code{"chrom:pos:strand"} (e.g. \code{"10:100232436:-"}; see
+\code{format_site_id()} for the canonical way to construct these).
 Chromosome names with or without a leading "chr" are both accepted.}
 
-\item{genome}{`"hg19"` or `"hg38"` -- which genome build `site_ids`'
+\item{genome}{\code{"hg19"} or \code{"hg38"} -- which genome build \code{site_ids}'
 coordinates are on (REQUIRED -- the same numeric position means a
 different gene, or no gene at all, on each build; see the
-`map_sites_to_genes()` unit tests for a direct example of this).}
+\code{map_sites_to_genes()} unit tests for a direct example of this).}
 }
 \value{
-a data.frame, one row per site id, columns `site_id`, `chrom`,
-  `pos`, `strand`, `entrez_gene_id`, `ensembl_gene_id` (the last two are
-  `NA` for a site with no overlapping gene).
+a data.frame, one row per site id, columns \code{site_id}, \code{chrom},
+\code{pos}, \code{strand}, \code{entrez_gene_id}, \code{ensembl_gene_id} (the last two are
+\code{NA} for a site with no overlapping gene).
 }
 \description{
-Uses the real Bioconductor UCSC `TxDb` gene-model annotation for the
-requested genome build (`TxDb.Hsapiens.UCSC.hg19.knownGene` or
-`..hg38..`), plus `org.Hs.eg.db` to translate its Entrez gene ids to
+Uses the real Bioconductor UCSC \code{TxDb} gene-model annotation for the
+requested genome build (\code{TxDb.Hsapiens.UCSC.hg19.knownGene} or
+\code{..hg38..}), plus \code{org.Hs.eg.db} to translate its Entrez gene ids to
 Ensembl gene ids -- not a new/custom gene-annotation source. Both
-annotation packages (plus their `GenomicFeatures`/`GenomicRanges`
-dependencies) are `Suggests`, not `Imports`: if any are missing, this
-stops with a `BiocManager::install(...)` message rather than
-installing them automatically (see `.ensure_genome_annotation_installed()`
-/ `.ensure_bioc_installed()` -- caEditR does not auto-install optional
+annotation packages (plus their \code{GenomicFeatures}/\code{GenomicRanges}
+dependencies) are \code{Suggests}, not \code{Imports}: if any are missing, this
+stops with a \code{BiocManager::install(...)} message rather than
+installing them automatically (see \code{.ensure_genome_annotation_installed()}
+/ \code{.ensure_bioc_installed()} -- caEditR does not auto-install optional
 dependencies, per Bioconductor policy).
 }
 \details{
 Each site is matched to any gene whose body overlaps its genomic
-position. If a site's own strand is known (`"chrom:pos:strand"`, this
+position. If a site's own strand is known (\code{"chrom:pos:strand"}, this
 package's own site-id convention) and more than one gene overlaps at
 that position, a gene on the SAME strand is preferred (common for
 ADAR-edited sites in overlapping sense/antisense transcripts); ties are

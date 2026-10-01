@@ -8,7 +8,7 @@ estimate_proportions_signature_matrix(bulk_counts, signature_matrix)
 }
 \arguments{
 \item{bulk_counts}{numeric matrix, genes (rows) x samples (columns).
-Row names must overlap `signature_matrix`'s row names (gene ids/symbols
+Row names must overlap \code{signature_matrix}'s row names (gene ids/symbols
 must use the SAME identifier system in both -- this function does not
 convert between them).}
 
@@ -17,7 +17,7 @@ convert between them).}
 }
 \value{
 a data.frame, samples (rows) x cell types (columns, from
-  `colnames(signature_matrix)`), each row summing to (approximately) 1.
+\code{colnames(signature_matrix)}), each row summing to (approximately) 1.
 }
 \description{
 this here is NNLS to get the per cell type proportions according to a signature matrix.

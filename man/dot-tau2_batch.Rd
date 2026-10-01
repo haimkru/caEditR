@@ -7,7 +7,7 @@
 .tau2_batch(e_bulk, coverage, floor = 1e-06)
 }
 \description{
-Identical formula to `binomial_tau2()`, vectorized -- same precedented
-pattern as `figures/fig_canrd_n_sweep_r_squared.py::_tau2_batch()`.
+Identical formula to \code{binomial_tau2()}, vectorized -- same precedented
+pattern as \verb{figures/fig_canrd_n_sweep_r_squared.py::_tau2_batch()}.
 }
 \keyword{internal}

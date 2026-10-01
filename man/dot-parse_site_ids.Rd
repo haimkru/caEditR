@@ -3,12 +3,12 @@
 \name{.parse_site_ids}
 \alias{.parse_site_ids}
 \title{Parse this package's own "chrom:pos" / "chrom:pos:strand" site ids
-(see `format_site_id()` for the canonical way to construct one).}
+(see \code{format_site_id()} for the canonical way to construct one).}
 \usage{
 .parse_site_ids(site_ids)
 }
 \description{
 Parse this package's own "chrom:pos" / "chrom:pos:strand" site ids
-(see `format_site_id()` for the canonical way to construct one).
+(see \code{format_site_id()} for the canonical way to construct one).
 }
 \keyword{internal}

@@ -2,11 +2,11 @@
 % Please edit documentation in R/genome_annotation.R
 \name{.txdb_pkg_for_genome}
 \alias{.txdb_pkg_for_genome}
-\title{Which UCSC `TxDb` annotation package covers a given genome build.}
+\title{Which UCSC \code{TxDb} annotation package covers a given genome build.}
 \usage{
 .txdb_pkg_for_genome(genome)
 }
 \description{
-Which UCSC `TxDb` annotation package covers a given genome build.
+Which UCSC \code{TxDb} annotation package covers a given genome build.
 }
 \keyword{internal}

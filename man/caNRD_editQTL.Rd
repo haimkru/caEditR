@@ -28,19 +28,19 @@ caNRD_editQTL(
 }
 \arguments{
 \item{bulk_editing}{numeric matrix, sites (rows, named) x samples (columns, named), observed bulk ratios in
-\\[0,1\\]; `NA` allowed.}
+[0,1]; \code{NA} allowed.}
 
-\item{genotypes}{numeric matrix, variants (rows, named) x samples (columns, named), dosages in \\[0,2\\].}
+\item{genotypes}{numeric matrix, variants (rows, named) x samples (columns, named), dosages in [0,2].}
 
 \item{proportions}{numeric matrix, samples (rows, named) x cell types (columns, named), rows summing to 1.}
 
 \item{theta}{numeric matrix, sites (rows) x cell types (columns), per-site relative expression of the host
-gene (as used by `caNRD_edit()`).}
+gene (as used by \code{caNRD_edit()}).}
 
-\item{theta_floor}{the floor used when `theta` was estimated (e.g. `estimate_theta_nnls()`'s `floor`, default
+\item{theta_floor}{the floor used when \code{theta} was estimated (e.g. \code{estimate_theta_nnls()}'s \code{floor}, default
 there 1e-3); theta at the floor means "not expressed". REQUIRED -- pass 0 for true (unfloored) theta.}
 
-\item{pairs}{optional data.frame with columns `site_id`, `variant_id` listing the (site, variant) pairs to test;
+\item{pairs}{optional data.frame with columns \code{site_id}, \code{variant_id} listing the (site, variant) pairs to test;
 default all sites x all variants.}
 
 \item{coverage}{optional sites x samples matrix of read coverage (with dimnames). Strongly recommended: it gives the
@@ -49,106 +49,106 @@ binomial sampling variance. Without it the model is TCA's (a single extra-noise 
 \item{covariates}{optional numeric matrix, samples (rows, named) x covariates.}
 
 \item{min_mean_phi}{minimum mean effective weight for a cell type to be tested (default 0.10, as in
-`caNRD_edit()`).}
+\code{caNRD_edit()}).}
 
 \item{floor_tol}{tolerance for "at the floor" (default: smaller of 1e-9 and theta_floor / 1e6).}
 
 \item{min_samples}{minimum number of usable samples per test (default 30).}
 
 \item{min_minor_allele_samples}{minimum number of samples carrying the minor allele (default 10, as tensorQTL's
-`ma_sample_threshold` in this project's edQTL runs); below it the test is skipped with
-`status = "too_few_minor_allele_samples"`.}
+\code{ma_sample_threshold} in this project's edQTL runs); below it the test is skipped with
+\code{status = "too_few_minor_allele_samples"}.}
 
 \item{sigma2_floor}{lower bound for the cell-type variances (default 1e-8).}
 
 \item{max_vif}{variance-inflation factor above which an effect is flagged weakly identifiable (default 10).}
 
-\item{init}{optional list with `sigma2` (named by cell type, or unnamed in the column order of `proportions`), e.g. from
+\item{init}{optional list with \code{sigma2} (named by cell type, or unnamed in the column order of \code{proportions}), e.g. from
 a caNRD fit; used as one of several starting values only.}
 
 \item{max_outer}{maximum alternations between the mean/variance fit and the model-based \eqn{\tau^2} update.}
 
 \item{tol}{convergence tolerance of that alternation: stop when the largest change in the mean parameters is below
-`tol` (default 1e-7) or the relative log-likelihood change is below 1e-8.}
+\code{tol} (default 1e-7) or the relative log-likelihood change is below 1e-8.}
 
-\item{engine}{`"fast"` (default): the same estimator maximised by a batched projected-Newton method with the analytic
+\item{engine}{\code{"fast"} (default): the same estimator maximised by a batched projected-Newton method with the analytic
 gradient and exact Hessian of the profiled likelihood, sharing work across all variants of a site (17-140x faster in
-simulation; results agree with `"reference"` to ~1e-4 in beta, never at a lower likelihood on the same objective).
+simulation; results agree with \code{"reference"} to ~1e-4 in beta, never at a lower likelihood on the same objective).
 Pairs it cannot handle (a single identifiable cell type, exactly aliased designs, Newton non-convergence) are
-computed by the reference engine. `"reference"`: L-BFGS-B per pair (slow; kept for validation).
-`"scan"`: for genome-wide cis scans (many variants per site). Per site the variance components are estimated once
+computed by the reference engine. \code{"reference"}: L-BFGS-B per pair (slow; kept for validation).
+\code{"scan"}: for genome-wide cis scans (many variants per site). Per site the variance components are estimated once
 from the genotype-free model; every variant is then tested by GLS at that fixed variance, batched over variants
-(tensorQTL/EMMAX-style; ~0.5-1 ms per pair at 1,000 donors, vs ~50 ms with "fast"). For these pairs `p` is the
-per-cell-type Wald test at the fixed null variance and `p_site` the K-df Wald test. With `refine = "lead"` (default)
-the lead variant of each site (smallest `p_site`) is re-fitted with the exact "fast" engine, as tensorQTL treats
-the top variant per phenotype specially; `refine = <p>` re-fits every pair with min(p, p_site) below the threshold
-(slow for many hits: ~50 ms per re-fitted pair); refined rows are the exact results (`refined = TRUE`). In simulation the scan was calibrated (per-test FPR 0.049 at 0.05, 0.0011 at 0.001), had the same
+(tensorQTL/EMMAX-style; ~0.5-1 ms per pair at 1,000 donors, vs ~50 ms with "fast"). For these pairs \code{p} is the
+per-cell-type Wald test at the fixed null variance and \code{p_site} the K-df Wald test. With \code{refine = "lead"} (default)
+the lead variant of each site (smallest \code{p_site}) is re-fitted with the exact "fast" engine, as tensorQTL treats
+the top variant per phenotype specially; \verb{refine = <p>} re-fits every pair with min(p, p_site) below the threshold
+(slow for many hits: ~50 ms per re-fitted pair); refined rows are the exact results (\code{refined = TRUE}). In simulation the scan was calibrated (per-test FPR 0.049 at 0.05, 0.0011 at 0.001), had the same
 wrong-cell-type rate as the exact engine, and with refinement the same power; without refinement it loses power at
-strong effects because the fixed null variance absorbs part of the effect. Adds column `refined`; with
-`vcov = "beta"` or `"mu_beta"` also the attribute `"coef_cov"` (per-pair coefficient covariances; off by default
+strong effects because the fixed null variance absorbs part of the effect. Adds column \code{refined}; with
+\code{vcov = "beta"} or \code{"mu_beta"} also the attribute \code{"coef_cov"} (per-pair coefficient covariances; off by default
 because it is large for many pairs). Sites whose genotype-free fit fails are computed with the exact engine.}
 
-\item{...}{tuning arguments of the fast engine (`chunk_size`, `newton_tol`, `max_newton`, `fallback_vif`,
-`exact_hessian`, `newton_quick_tol`, `verbose`) or of the scan engine (`refine`, `refine_args`, `vcov`,
-`block_size`, `verbose`).}
+\item{...}{tuning arguments of the fast engine (\code{chunk_size}, \code{newton_tol}, \code{max_newton}, \code{fallback_vif},
+\code{exact_hessian}, \code{newton_quick_tol}, \code{verbose}) or of the scan engine (\code{refine}, \code{refine_args}, \code{vcov},
+\code{block_size}, \code{verbose}).}
 }
 \value{
-data.frame, one row per (site, variant, cell type): `site_id`, `variant_id`, `celltype`, `status`
-  (`"tested"`, or why not: `not_identifiable`, `aliased`, `too_few_samples`, `monomorphic_variant`,
-  `too_few_minor_allele_samples`, `no_variation_in_bulk`, `fit_failed`), `beta`, `se`, `ci_low`, `ci_high`, `p` (cell-type LRT), `p_wald`, `p_site`
-  (site-level joint LRT, repeated on each row of the pair), `mu`, `sigma2`, `tau2_0`, `mean_phi`, `vif`, `weakly_identifiable`,
-  `n_samples`, `n_minor_allele_samples`, `n_celltypes`, `loglik`, `converged`, `iterations`.
+data.frame, one row per (site, variant, cell type): \code{site_id}, \code{variant_id}, \code{celltype}, \code{status}
+(\code{"tested"}, or why not: \code{not_identifiable}, \code{aliased}, \code{too_few_samples}, \code{monomorphic_variant},
+\code{too_few_minor_allele_samples}, \code{no_variation_in_bulk}, \code{fit_failed}), \code{beta}, \code{se}, \code{ci_low}, \code{ci_high}, \code{p} (cell-type LRT), \code{p_wald}, \code{p_site}
+(site-level joint LRT, repeated on each row of the pair), \code{mu}, \code{sigma2}, \code{tau2_0}, \code{mean_phi}, \code{vif}, \code{weakly_identifiable},
+\code{n_samples}, \code{n_minor_allele_samples}, \code{n_celltypes}, \code{loglik}, \code{converged}, \code{iterations}.
 }
 \description{
 Extends caNRD-edit from reconstruction to association testing. caNRD models each donor's latent cell-type editing
 \eqn{Z_{ih}} as independent across cell types with mean \eqn{\mu_h} and variance \eqn{\sigma^2_h}, and the observed bulk
-ratio as their \eqn{\phi}-weighted mixture plus binomial read-sampling noise \eqn{\tau^2_i}. `caNRD_editQTL()` puts the
+ratio as their \eqn{\phi}-weighted mixture plus binomial read-sampling noise \eqn{\tau^2_i}. \code{caNRD_editQTL()} puts the
 genotype into the latent mean,
 \deqn{E[Z_{ih} \mid G_i] = \mu_h + \beta_h G_i,}
 and integrates the latent editing out, giving caNRD's own marginal model for the bulk ratio
 \deqn{E[Y_i] = \sum_h \phi_{ih}(\mu_h + \beta_h G_i) + \gamma' x_i, \qquad
       Var[Y_i] = \sum_h \phi_{ih}^2 \sigma^2_h + \tau^2_i + \tau^2_0,}
-fitted by (Gaussian) maximum likelihood. This is the joint model of TCA (Rahmani et al. 2019, `TCA::tca()` with the
-genotype as a cell-type-specific covariate `C1`: \eqn{Z_{ih} = \mu_h + \gamma_h G_i + \epsilon_{ih}},
+fitted by (Gaussian) maximum likelihood. This is the joint model of TCA (Rahmani et al. 2019, \code{TCA::tca()} with the
+genotype as a cell-type-specific covariate \code{C1}: \eqn{Z_{ih} = \mu_h + \gamma_h G_i + \epsilon_{ih}},
 \eqn{Var = \sum_h W_{ih}^2 \sigma^2_h + \tau^2}), adapted to RNA editing: the measurement noise is split into the
 coverage-dependent binomial read-sampling variance \eqn{\tau^2_i} (known given the mean) plus TCA's scalar residual
 variance \eqn{\tau^2_0} (extra, non-binomial technical noise / overdispersion), and \eqn{\phi} are RNA contributions
 (proportions x host-gene expression) rather than cell-type proportions. Estimation details:
 \itemize{
-  \item \eqn{\tau^2_i = m_i(1-m_i)/coverage_i} uses the MODEL-PREDICTED bulk level \eqn{m_i} (the variance-fixed caNRD
-    sampling variance), so samples with zero edited reads are not treated as exact.
-    Without `coverage` there is no binomial term (\eqn{\tau^2_i = 0}) and \eqn{\tau^2_0} carries all measurement noise,
-    i.e. exactly TCA's variance model; pass coverage whenever it is known.
-  \item \eqn{\sigma^2_h} (cell-type biological variances) and \eqn{\tau^2_0} are nuisance parameters estimated by maximum likelihood (started
-    from caNRD's non-negative moment estimate), with the mean parameters profiled out by generalized least squares. They
-    are RE-ESTIMATED under every null model, never carried over from the alternative.
-  \item \eqn{\tau^2} is computed once from the full model's fitted mean and held fixed across the full and null fits of a
-    pair, so the likelihoods being compared share the same sampling-noise term.
+\item \eqn{\tau^2_i = m_i(1-m_i)/coverage_i} uses the MODEL-PREDICTED bulk level \eqn{m_i} (the variance-fixed caNRD
+sampling variance), so samples with zero edited reads are not treated as exact.
+Without \code{coverage} there is no binomial term (\eqn{\tau^2_i = 0}) and \eqn{\tau^2_0} carries all measurement noise,
+i.e. exactly TCA's variance model; pass coverage whenever it is known.
+\item \eqn{\sigma^2_h} (cell-type biological variances) and \eqn{\tau^2_0} are nuisance parameters estimated by maximum likelihood (started
+from caNRD's non-negative moment estimate), with the mean parameters profiled out by generalized least squares. They
+are RE-ESTIMATED under every null model, never carried over from the alternative.
+\item \eqn{\tau^2} is computed once from the full model's fitted mean and held fixed across the full and null fits of a
+pair, so the likelihoods being compared share the same sampling-noise term.
 }
 Tests, all likelihood-ratio tests (chi-square):
 \itemize{
-  \item cell type \eqn{h}: \eqn{H_0: \beta_h = 0}, with the other cell types' genotype effects free (1 df), `p`;
-  \item site: \eqn{H_0: \beta_1 = \dots = \beta_K = 0} (K df), `p_site`.
+\item cell type \eqn{h}: \eqn{H_0: \beta_h = 0}, with the other cell types' genotype effects free (1 df), \code{p};
+\item site: \eqn{H_0: \beta_1 = \dots = \beta_K = 0} (K df), \code{p_site}.
 }
 Wald standard errors and 95\% intervals come from the GLS covariance of the mean parameters at the ML variance estimates;
-`p_wald` is the TCA-style per-cell-type test (weighted regression at the alternative's variance estimates).
+\code{p_wald} is the TCA-style per-cell-type test (weighted regression at the alternative's variance estimates).
 }
 \details{
-Relation to [celltype_edqtl()]: both use the same mean structure (genotype x \eqn{\phi}). `celltype_edqtl()` models extra
+Relation to \code{\link[=celltype_edqtl]{celltype_edqtl()}}: both use the same mean structure (genotype x \eqn{\phi}). \code{celltype_edqtl()} models extra
 variance with a single scalar \eqn{s^2} added to every sample, estimates it by moments and uses Wald tests with sandwich
-SEs. `caNRD_editQTL()` uses caNRD's latent-variable variance \eqn{\sum_h \phi_{ih}^2 \sigma^2_h} (cell-type-specific,
+SEs. \code{caNRD_editQTL()} uses caNRD's latent-variable variance \eqn{\sum_h \phi_{ih}^2 \sigma^2_h} (cell-type-specific,
 scaling with each donor's composition), maximum likelihood with explicit nuisance re-estimation, and likelihood-ratio
 tests including a site-level joint test. When the cell types' biological variances are similar and compositions vary
-little, the two coincide; the benchmark in `figures/scripts_more_datasetsV2/` quantifies when they differ.
+little, the two coincide; the benchmark in \verb{figures/scripts_more_datasetsV2/} quantifies when they differ.
 
-Identifiability: cell types are gated exactly like [caNRD_edit()] (theta at the floor or mean \eqn{\phi} below
-`min_mean_phi` are not tested). For tested cell types, `vif` (variance inflation of the genotype x \eqn{\phi} column
-given the others) is reported and effects with `vif > max_vif` are flagged `weakly_identifiable = TRUE`: their
+Identifiability: cell types are gated exactly like \code{\link[=caNRD_edit]{caNRD_edit()}} (theta at the floor or mean \eqn{\phi} below
+\code{min_mean_phi} are not tested). For tested cell types, \code{vif} (variance inflation of the genotype x \eqn{\phi} column
+given the others) is reported and effects with \code{vif > max_vif} are flagged \code{weakly_identifiable = TRUE}: their
 estimates should not be read as confident cell-type assignments, because similar or insufficiently variable RNA
 contributions make them hard to separate from bulk data.
 
 Scale and bounds: effects are on the editing-ratio scale (per-allele change in the cell type's editing proportion).
-The mean is linear like caNRD's mixture; fitted means are clipped to \[0, 1\] only inside the sampling-variance term, so
+The mean is linear like caNRD's mixture; fitted means are clipped to [0, 1] only inside the sampling-variance term, so
 estimates near the 0/1 bounds are an approximation.
 }
 \examples{

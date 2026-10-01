@@ -19,70 +19,70 @@ caRDv0_edit(
 }
 \arguments{
 \item{bulk_editing}{numeric matrix, sites (rows) x samples (columns),
-observed bulk editing ratios in \\[0,1\\]. Row names = site ids, must
-match `reference`'s row names; column names = sample ids.}
+observed bulk editing ratios in [0,1]. Row names = site ids, must
+match \code{reference}'s row names; column names = sample ids.}
 
-\item{coverage}{numeric matrix, same shape as `bulk_editing`, read depth
+\item{coverage}{numeric matrix, same shape as \code{bulk_editing}, read depth
 (reads covering that site in that sample) at each entry. Use 0 (not a
 small positive placeholder) for "no reads at all" -- see
-`core.deconvolve`'s own docstring for why a placeholder biases the
+\code{core.deconvolve}'s own docstring for why a placeholder biases the
 estimate. Supply EITHER this (preferred, when you have real per-site
-coverage) OR `expression` below (not both -- if both are given,
-`coverage` wins and `expression` is ignored, with a `message()`
+coverage) OR \code{expression} below (not both -- if both are given,
+\code{coverage} wins and \code{expression} is ignored, with a \code{message()}
 saying so).}
 
 \item{proportions}{numeric matrix, samples (rows) x cell types (columns),
-each row summing to 1 (e.g. from `estimate_proportions_music()`).}
+each row summing to 1 (e.g. from \code{estimate_proportions_music()}).}
 
 \item{reference}{a list(mu, sigma2, theta), each a sites x celltypes
-matrix (e.g. from `load_reference()`).}
+matrix (e.g. from \code{load_reference()}).}
 
 \item{min_coverage}{sites/samples with coverage below this are still
-deconvolved but flagged in the `low_coverage` output (default 10).}
+deconvolved but flagged in the \code{low_coverage} output (default 10).}
 
 \item{expression}{numeric matrix, genes (rows, Ensembl gene ids) x
-samples (columns) -- if `coverage` isn't supplied, this is used
+samples (columns) -- if \code{coverage} isn't supplied, this is used
 instead to derive one automatically via
-`build_coverage_from_expression()` (see its own docs for how; this is
-an APPROXIMATION, not real read coverage -- prefer real `coverage`
+\code{build_coverage_from_expression()} (see its own docs for how; this is
+an APPROXIMATION, not real read coverage -- prefer real \code{coverage}
 whenever you have it).}
 
-\item{genome}{`"hg19"` or `"hg38"` -- which build `bulk_editing`'s
+\item{genome}{\code{"hg19"} or \code{"hg38"} -- which build \code{bulk_editing}'s
 (row-name) site coordinates are on. Only used when deriving coverage
-from `expression`.}
+from \code{expression}.}
 
 \item{coverage_scale, unmapped_floor}{passed to
-`build_coverage_from_expression()` when deriving coverage from `expression`.}
+\code{build_coverage_from_expression()} when deriving coverage from \code{expression}.}
 }
 \value{
 a list with:
-  \describe{
-    \item{deconvolved}{named list of matrices, one per cell type, each
-      sites x samples -- the deconvolved per-cell-type editing estimate.
-      THIS is "the deconvolved RNA editing matrix per cell type."}
-    \item{low_coverage}{sites x samples logical matrix, TRUE where the
-      estimate is likely dominated by the reference prior (low coverage).}
-  }
+\describe{
+\item{deconvolved}{named list of matrices, one per cell type, each
+sites x samples -- the deconvolved per-cell-type editing estimate.
+THIS is "the deconvolved RNA editing matrix per cell type."}
+\item{low_coverage}{sites x samples logical matrix, TRUE where the
+estimate is likely dominated by the reference prior (low coverage).}
+}
 }
 \description{
-This is the original `caRD_edit()` implementation, kept under this name
-once `caRD_edit` itself was promoted to a floor-and-negligible-signal
+This is the original \code{caRD_edit()} implementation, kept under this name
+once \code{caRD_edit} itself was promoted to a floor-and-negligible-signal
 gated implementation (see that function's own docs for why: confirmed
-directly that the exact same failure mode diagnosed in `caNRDv0_edit()`
+directly that the exact same failure mode diagnosed in \code{caNRDv0_edit()}
 -- theta entries clamped to an estimation floor, or otherwise
 contributing a negligible share of the bulk mixture, used as if they
 were precise weights -- is also present in this package's own bundled
-real reference, `reference_theta.csv`: 4.5% of its entries sit exactly
+real reference, \code{reference_theta.csv}: 4.5\% of its entries sit exactly
 at the 0.001 floor, and its 99th-percentile per-site max/min theta ratio
 reaches ~24,700x). This function is NOT deprecated and is not going
-away -- it is the direct, ungated per-site solver that `caRD_edit()`
+away -- it is the direct, ungated per-site solver that \code{caRD_edit()}
 now calls internally (once per identifiability-pattern group, on a
 reduced/gated subset of cell types) rather than on the full, unfiltered
-cell-type set. Call `caRDv0_edit()` directly when you specifically want
+cell-type set. Call \code{caRDv0_edit()} directly when you specifically want
 the original, unfiltered behavior (e.g. to reproduce old results).
 }
 \details{
-Reference-based sibling of `caNRD_edit()`. Deconvolves a bulk RNA-editing
+Reference-based sibling of \code{caNRD_edit()}. Deconvolves a bulk RNA-editing
 ratio matrix into per-cell-type estimates using a REAL sorted-cell-derived
 reference.
 }

@@ -2,11 +2,11 @@
 % Please edit documentation in R/zzz.R
 \name{.python_env_lib_dir}
 \alias{.python_env_lib_dir}
-\title{The `lib/` directory of the Python's own conda/venv environment, if any.}
+\title{The \verb{lib/} directory of the Python's own conda/venv environment, if any.}
 \usage{
 .python_env_lib_dir(python_path)
 }
 \description{
-The `lib/` directory of the Python's own conda/venv environment, if any.
+The \verb{lib/} directory of the Python's own conda/venv environment, if any.
 }
 \keyword{internal}

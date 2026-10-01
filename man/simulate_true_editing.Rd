@@ -7,7 +7,7 @@
 simulate_true_editing(mu, sigma2, n_samples, seed = 0)
 }
 \arguments{
-\item{mu, sigma2}{sites x celltypes matrices (e.g. from `simulate_reference()`).}
+\item{mu, sigma2}{sites x celltypes matrices (e.g. from \code{simulate_reference()}).}
 
 \item{n_samples}{number of samples to simulate.}
 
@@ -17,8 +17,8 @@ simulate_true_editing(mu, sigma2, n_samples, seed = 0)
 numeric array, dim (n_samples, n_sites, n_celltypes).
 }
 \description{
-Thin wrapper around the vendored, unmodified `simulate.simulate_true_editing`.
-`e\\[i,s,c\\] ~ Normal(mu\\[s,c\\], sigma2\\[s,c\\])`, clipped to \\[0,1\\].
+Thin wrapper around the vendored, unmodified \code{simulate.simulate_true_editing}.
+\code{e[i,s,c] ~ Normal(mu[s,c], sigma2[s,c])}, clipped to [0,1].
 }
 \examples{
 ref <- simulate_reference(n_sites = 5, n_celltypes = 3, seed = 1)

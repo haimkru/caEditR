@@ -30,7 +30,7 @@
 #'   \item cell type \eqn{h}: \eqn{H_0: \beta_h = 0}, with the other cell types' genotype effects free (1 df), `p`;
 #'   \item site: \eqn{H_0: \beta_1 = \dots = \beta_K = 0} (K df), `p_site`.
 #' }
-#' Wald standard errors and 95\% intervals come from the GLS covariance of the mean parameters at the ML variance estimates;
+#' Wald standard errors and 95% intervals come from the GLS covariance of the mean parameters at the ML variance estimates;
 #' `p_wald` is the TCA-style per-cell-type test (weighted regression at the alternative's variance estimates).
 #'
 #' Relation to [celltype_edqtl()]: both use the same mean structure (genotype x \eqn{\phi}). `celltype_edqtl()` models extra

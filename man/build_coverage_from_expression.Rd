@@ -14,38 +14,38 @@ build_coverage_from_expression(
 }
 \arguments{
 \item{site_ids}{character vector of standardized caEditR site ids --
-`"chrom:pos"` or `"chrom:pos:strand"` (see `format_site_id()`) -- the
+\code{"chrom:pos"} or \code{"chrom:pos:strand"} (see \code{format_site_id()}) -- the
 rows of the coverage matrix to build.}
 
 \item{expression}{numeric matrix, genes (rows, Ensembl gene ids --
-version suffixes like `"ENSG00000141510.16"` are stripped
+version suffixes like \code{"ENSG00000141510.16"} are stripped
 automatically before matching) x samples (columns).}
 
-\item{genome}{`"hg19"` or `"hg38"` -- which genome build `site_ids`'
-coordinates are on (REQUIRED -- see `map_sites_to_genes()`).}
+\item{genome}{\code{"hg19"} or \code{"hg38"} -- which genome build \code{site_ids}'
+coordinates are on (REQUIRED -- see \code{map_sites_to_genes()}).}
 
 \item{coverage_scale}{multiply each site's host-gene expression by this
 factor before using it as coverage (default 1 -- set based on your own
-expression units; e.g. if `expression` is in TPM and you want
+expression units; e.g. if \code{expression} is in TPM and you want
 read-count-like magnitudes, scale up accordingly).}
 
 \item{unmapped_floor}{coverage assigned to sites whose gene couldn't be
-determined, or whose gene isn't present in `expression` (default 1 --
-deliberately low so `caRD_edit()`/`caNRD_edit()`'s own `min_coverage`
+determined, or whose gene isn't present in \code{expression} (default 1 --
+deliberately low so \code{caRD_edit()}/\code{caNRD_edit()}'s own \code{min_coverage}
 threshold correctly flags these as low-confidence rather than being
 silently trusted).}
 }
 \value{
-numeric matrix, sites (rows, `site_ids`) x samples (columns,
-  `colnames(expression)`), with a `"site_to_gene"` attribute (the full
-  `map_sites_to_genes()` result, for inspection/diagnostics).
+numeric matrix, sites (rows, \code{site_ids}) x samples (columns,
+\code{colnames(expression)}), with a \code{"site_to_gene"} attribute (the full
+\code{map_sites_to_genes()} result, for inspection/diagnostics).
 }
 \description{
 Real RNA-editing read coverage at a site scales with how highly its
 host gene is expressed in that sample -- this approximates a per-site,
 per-sample coverage matrix directly from an existing per-sample gene
-expression matrix (Ensembl gene ids), via `map_sites_to_genes()`, for
-use as the `coverage` argument to `caRD_edit()`/`caNRD_edit()` when a
+expression matrix (Ensembl gene ids), via \code{map_sites_to_genes()}, for
+use as the \code{coverage} argument to \code{caRD_edit()}/\code{caNRD_edit()} when a
 real per-site read-coverage matrix (e.g. from an editing caller) isn't
 available. This is an approximation, not real read coverage -- prefer
 real per-site coverage from your editing calls whenever you have it.

@@ -12,17 +12,17 @@ message if it is not.}
 
 \item{install_fn}{unused; kept so existing call sites don't need to
 change. Earlier versions of this package used it to auto-install
-`pkg` -- removed for Bioconductor compliance.}
+\code{pkg} -- removed for Bioconductor compliance.}
 }
 \description{
 Deliberately does NOT install anything automatically: Bioconductor (and
 CRAN) policy prohibits packages from installing other software at
 runtime without explicit user action, and Bioconductor's own build/check
 machines cannot be relied on to have network access while running
-`R CMD check` or building the vignette. `pkg` is always also declared in
-DESCRIPTION's `Suggests` (checked at package-build time) -- this just
+\verb{R CMD check} or building the vignette. \code{pkg} is always also declared in
+DESCRIPTION's \code{Suggests} (checked at package-build time) -- this just
 gives a clear, one-line instruction if a user hits the gap at runtime,
 instead of a raw "could not find function" error deep inside
-`TCA_Like()`/`map_sites_to_genes()`/etc.
+\code{TCA_Like()}/\code{map_sites_to_genes()}/etc.
 }
 \keyword{internal}

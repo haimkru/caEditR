@@ -11,7 +11,7 @@ simulate_proportions(n_samples, composition, concentration = 10, seed = 0)
 
 \item{composition}{numeric vector, length celltypes, mean composition (sums to 1).}
 
-\item{concentration}{Dirichlet concentration multiplier (higher = tighter around `composition`).}
+\item{concentration}{Dirichlet concentration multiplier (higher = tighter around \code{composition}).}
 
 \item{seed}{RNG seed.}
 }
@@ -19,7 +19,7 @@ simulate_proportions(n_samples, composition, concentration = 10, seed = 0)
 numeric matrix, samples x celltypes, each row summing to 1.
 }
 \description{
-Thin wrapper around the vendored, unmodified `simulate.sample_proportions`.
+Thin wrapper around the vendored, unmodified \code{simulate.sample_proportions}.
 }
 \examples{
 simulate_proportions(5, c(0.5, 0.3, 0.2), seed = 1)

@@ -17,10 +17,10 @@ caNRD_editQTL_shrink(
 )
 }
 \arguments{
-\item{fit}{output of [caNRD_editQTL()] with one variant per site.}
+\item{fit}{output of \code{\link[=caNRD_editQTL]{caNRD_editQTL()}} with one variant per site.}
 
-\item{bulk_editing, genotypes, proportions, theta, theta_floor, coverage}{the inputs `fit` was computed from, as in
-[caNRD_editQTL()].}
+\item{bulk_editing, genotypes, proportions, theta, theta_floor, coverage}{the inputs \code{fit} was computed from, as in
+\code{\link[=caNRD_editQTL]{caNRD_editQTL()}}.}
 
 \item{min_sites}{minimum number of tested sites per cell type to estimate its prior (default 50); below it that
 cell type's betas are left unshrunk (with a warning).}
@@ -28,33 +28,33 @@ cell type's betas are left unshrunk (with a warning).}
 \item{chunk_size}{number of sites processed together (default 5000).}
 }
 \value{
-the fit with `beta`, `mu`, `sigma2`, `tau2_0` replaced for tested rows, plus columns `beta_unshrunk` and
-  `shrink_ratio` (= shrunk / unshrunk beta); attribute `"prior"` (per cell type: pi0, t2, n_sites).
+the fit with \code{beta}, \code{mu}, \code{sigma2}, \code{tau2_0} replaced for tested rows, plus columns \code{beta_unshrunk} and
+\code{shrink_ratio} (= shrunk / unshrunk beta); attribute \code{"prior"} (per cell type: pi0, t2, n_sites).
 }
 \description{
-Returns a copy of a [caNRD_editQTL()] fit whose cell-type genotype effects are shrunk toward 0, for use as the `fit`
-of [caNRD_joint_reconstruction()]. The discovery results (the input `fit`: betas, SEs, p-values) are not changed.
+Returns a copy of a \code{\link[=caNRD_editQTL]{caNRD_editQTL()}} fit whose cell-type genotype effects are shrunk toward 0, for use as the \code{fit}
+of \code{\link[=caNRD_joint_reconstruction]{caNRD_joint_reconstruction()}}. The discovery results (the input \code{fit}: betas, SEs, p-values) are not changed.
 This is the setting benchmarked as "joint reconstruction with multivariate shrinkage"
-(`figures/caNRD_joint_reconstruction_benchmark_V2.Rmd`): it reduces the false genetic structure that noisy
+(\code{figures/caNRD_joint_reconstruction_benchmark_V2.Rmd}): it reduces the false genetic structure that noisy
 estimated betas write into unaffected cell types, at the cost of keeping less of weak true effects.
 }
 \details{
 Per site (one variant per site), in the centered parameterization \eqn{M_{ih} = b_h + \beta_h (G_i - \bar G)}:
 \enumerate{
-  \item the sampling covariance \eqn{S} of \eqn{(\hat b, \hat\beta)} is computed at the fit's parameters on the donors
-    given (GLS, \eqn{V_i = \sum_h \phi_{ih}^2\sigma^2_h + \tau^2_0 + m_i(1-m_i)/coverage_i}); with the same donors and
-    data as the fit this is the fit's own covariance;
-  \item a point-normal prior per cell type, \eqn{\beta_h \sim \pi_{0h}\delta_0 + (1-\pi_{0h}) N(0, t^2_h)}, is estimated by
-    maximum likelihood across all tested sites from \eqn{(\hat\beta_h, se_h)};
-  \item each site's \eqn{\hat\beta} vector is replaced by its posterior mean under that prior and the likelihood
-    \eqn{N(\hat\beta, S_{\beta\beta})} (all \eqn{2^K} null/slab configurations), so the cell types' estimation
-    covariance is used;
-  \item the centered baseline \eqn{b} is kept (so \eqn{\mu_h = b_h - \tilde\beta_h\bar G}); the covariance-based baseline
-    update used in the benchmark changed baselines by ~0 and is not applied;
-  \item the fit's residual variances are kept (re-estimating them by ML given the shrunk means changed held-out RMSE
-    by < 0.001 percentage points in simulation, at 7x the cost).
+\item the sampling covariance \eqn{S} of \eqn{(\hat b, \hat\beta)} is computed at the fit's parameters on the donors
+given (GLS, \eqn{V_i = \sum_h \phi_{ih}^2\sigma^2_h + \tau^2_0 + m_i(1-m_i)/coverage_i}); with the same donors and
+data as the fit this is the fit's own covariance;
+\item a point-normal prior per cell type, \eqn{\beta_h \sim \pi_{0h}\delta_0 + (1-\pi_{0h}) N(0, t^2_h)}, is estimated by
+maximum likelihood across all tested sites from \eqn{(\hat\beta_h, se_h)};
+\item each site's \eqn{\hat\beta} vector is replaced by its posterior mean under that prior and the likelihood
+\eqn{N(\hat\beta, S_{\beta\beta})} (all \eqn{2^K} null/slab configurations), so the cell types' estimation
+covariance is used;
+\item the centered baseline \eqn{b} is kept (so \eqn{\mu_h = b_h - \tilde\beta_h\bar G}); the covariance-based baseline
+update used in the benchmark changed baselines by ~0 and is not applied;
+\item the fit's residual variances are kept (re-estimating them by ML given the shrunk means changed held-out RMSE
+by < 0.001 percentage points in simulation, at 7x the cost).
 }
-The prior is estimated from the sites in `fit`; it is only meaningful with many sites (hundreds or more).
+The prior is estimated from the sites in \code{fit}; it is only meaningful with many sites (hundreds or more).
 All steps are vectorised over sites (grouped by their set of tested cell types; batched small-matrix inverses and
 Cholesky factorisations): ~1 ms per site at 500 donors, linear in the number of sites.
 }

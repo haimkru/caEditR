@@ -2,17 +2,17 @@
 % Please edit documentation in R/genome_annotation.R
 \name{.ensure_genome_annotation_installed}
 \alias{.ensure_genome_annotation_installed}
-\title{Ensure the genome-annotation packages needed by `map_sites_to_genes()`
-are installed for a given build (`hg19` or `hg38`).}
+\title{Ensure the genome-annotation packages needed by \code{map_sites_to_genes()}
+are installed for a given build (\code{hg19} or \code{hg38}).}
 \usage{
 .ensure_genome_annotation_installed(genome)
 }
 \value{
-the `TxDb` package name for `genome` (invisibly usable to `get()` the TxDb object).
+the \code{TxDb} package name for \code{genome} (invisibly usable to \code{get()} the TxDb object).
 }
 \description{
-Routes through the one shared `.ensure_bioc_installed()` helper
-(`ensure_bioc.R`) -- same single-central-installer design as
-`.ensure_music_stack_installed()`, not a separate reimplementation.
+Routes through the one shared \code{.ensure_bioc_installed()} helper
+(\code{ensure_bioc.R}) -- same single-central-installer design as
+\code{.ensure_music_stack_installed()}, not a separate reimplementation.
 }
 \keyword{internal}

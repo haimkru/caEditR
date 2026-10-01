@@ -7,30 +7,30 @@
 format_site_id(chrom, pos, strand = "*")
 }
 \arguments{
-\item{chrom}{chromosome name(s), with or without a leading "chr" (e.g. `"10"` or `"chr10"`).}
+\item{chrom}{chromosome name(s), with or without a leading "chr" (e.g. \code{"10"} or \code{"chr10"}).}
 
 \item{pos}{integer genomic position(s), 1-based.}
 
-\item{strand}{optional strand(s), `"+"`/`"-"`/`"*"`/`NA` (default `"*"` = unknown/unspecified).}
+\item{strand}{optional strand(s), \code{"+"}/\code{"-"}/\code{"*"}/\code{NA} (default \code{"*"} = unknown/unspecified).}
 }
 \value{
 character vector of standardized site ids, recycled to the
-  longest of `chrom`/`pos`/`strand`.
+longest of \code{chrom}/\code{pos}/\code{strand}.
 }
 \description{
 This here is mostly for conveneince. Every function in this package that takes or returns RNA-editing site
-ids (`bulk_editing`/`coverage` row names, `map_sites_to_genes()`,
-`build_coverage_from_expression()`, `simulate_reference_and_cohort()`,
-etc.) uses exactly ONE standardized id format: `"chrom:pos"` or
-`"chrom:pos:strand"` (e.g. `"10:100232436:-"`) -- chromosome name
+ids (\code{bulk_editing}/\code{coverage} row names, \code{map_sites_to_genes()},
+\code{build_coverage_from_expression()}, \code{simulate_reference_and_cohort()},
+etc.) uses exactly ONE standardized id format: \code{"chrom:pos"} or
+\code{"chrom:pos:strand"} (e.g. \code{"10:100232436:-"}) -- chromosome name
 WITHOUT a leading "chr" (bare Ensembl/GENCODE-style, matching this
 project's own real editing-call output), a 1-based genomic position,
-and an optional strand (`"+"`/`"-"`; omit or use `"*"`/`NA` if unknown
+and an optional strand (\code{"+"}/\code{"-"}; omit or use \code{"*"}/\code{NA} if unknown
 or not strand-specific). This is the canonical way to construct one --
 use it instead of hand-building the string yourself, so the format
-always matches exactly what `map_sites_to_genes()`/
-`build_coverage_from_expression()` (and everything else in this
-package) expect. (`map_sites_to_genes()` also ACCEPTS "chr"-prefixed
+always matches exactly what \code{map_sites_to_genes()}/
+\code{build_coverage_from_expression()} (and everything else in this
+package) expect. (\code{map_sites_to_genes()} also ACCEPTS "chr"-prefixed
 chromosome names on input, auto-detected, for convenience -- but this
 function always OUTPUTS the bare, no-"chr" canonical form.)
 }

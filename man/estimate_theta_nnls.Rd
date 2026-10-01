@@ -20,7 +20,7 @@ numeric matrix, genes x cell types.
 }
 \description{
 Generic reimplementation of the same NNLS-per-gene approach documented in
-the parent project's `gtex_edqtl_recall/build_theta_genomewide.py`
+the parent project's \code{gtex_edqtl_recall/build_theta_genomewide.py}
 (CIBERSORTx "High-Resolution"/csSAM-style: estimate cell-type-specific
 expression from bulk expression + already-known cell-type proportions,
 instead of from purified reference samples). That script is GTEx-specific
@@ -28,10 +28,10 @@ instead of from purified reference samples). That script is GTEx-specific
 any bulk expression matrix:
 }
 \details{
-TPM\\[gene, sample\\] ~= sum_c  proportion\\[sample, c\\] * theta\\[gene, c\\]
+TPM[gene, sample] ~= sum_c  proportion[sample, c] * theta[gene, c]
 
 solved by non-negative least squares per gene (expression can't be
-negative), via the `nnls` package.
+negative), via the \code{nnls} package.
 }
 \examples{
 set.seed(1)

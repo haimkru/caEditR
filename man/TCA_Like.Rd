@@ -8,24 +8,24 @@ TCA_Like(bulk_editing, proportions, ...)
 }
 \arguments{
 \item{bulk_editing}{numeric matrix, sites (rows) x samples (columns),
-observed bulk editing ratios in \\[0,1\\].}
+observed bulk editing ratios in [0,1].}
 
 \item{proportions}{numeric matrix, samples (rows) x cell types (columns),
-each row summing to 1 (e.g. from `estimate_proportions_music()`).}
+each row summing to 1 (e.g. from \code{estimate_proportions_music()}).}
 
-\item{...}{additional arguments passed through to `TCA::tca()` (e.g.
-`C1`, `tau`, `parallel`, `num_cores`).}
+\item{...}{additional arguments passed through to \code{TCA::tca()} (e.g.
+\code{C1}, \code{tau}, \code{parallel}, \code{num_cores}).}
 }
 \value{
 a list with:
-  \describe{
-    \item{deconvolved}{named list of matrices, one per cell type, each
-      sites x samples -- the deconvolved per-cell-type editing estimate.
-      Same output shape/name as `caRD_edit()`/`caNRD_edit()`.}
-  }
+\describe{
+\item{deconvolved}{named list of matrices, one per cell type, each
+sites x samples -- the deconvolved per-cell-type editing estimate.
+Same output shape/name as \code{caRD_edit()}/\code{caNRD_edit()}.}
+}
 }
 \description{
-Thin wrapper around the real `TCA` package's own `tca()` + `tensor()`
+Thin wrapper around the real \code{TCA} package's own \code{tca()} + \code{tensor()}
 (Rahmani et al. 2019) -- NOT a re-implementation.
 }
 \examples{

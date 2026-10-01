@@ -20,7 +20,7 @@ sites x samples matrix of bulk expression.
 }
 \description{
 Bulk expression of each site's host gene in each sample: the sample's cell-type proportions times the per-cell-type
-expression weights theta, with multiplicative log-normal noise. This is the input [estimate_theta_nnls()] expects.
+expression weights theta, with multiplicative log-normal noise. This is the input \code{\link[=estimate_theta_nnls]{estimate_theta_nnls()}} expects.
 }
 \examples{
 p <- simulate_proportions(10, c(0.5, 0.3, 0.2))

@@ -7,19 +7,19 @@
 load_reference(dir = system.file("extdata", package = "caEditR"))
 }
 \arguments{
-\item{dir}{directory containing `reference_mu.csv`, `reference_sigma2.csv`,
-`reference_theta.csv`. Defaults to this package's bundled example.}
+\item{dir}{directory containing \code{reference_mu.csv}, \code{reference_sigma2.csv},
+\code{reference_theta.csv}. Defaults to this package's bundled example.}
 }
 \value{
 list(mu, sigma2, theta), each a numeric matrix (sites x celltypes).
 }
 \description{
 Reads three CSVs (rows = sites, columns = cell types, first column = row
-names) into a list `list(mu=, sigma2=, theta=)` of matrices, aligned to
-the same site x celltype axes -- the format `caRD_edit()` expects for its
-`reference` argument. Defaults to this package's own bundled real
+names) into a list \code{list(mu=, sigma2=, theta=)} of matrices, aligned to
+the same site x celltype axes -- the format \code{caRD_edit()} expects for its
+\code{reference} argument. Defaults to this package's own bundled real
 reference (1495 sites x 6 blood cell types, trained on real, public
-GSE60424 sorted-cell RNA-seq -- see `inst/extdata/README.md`).
+GSE60424 sorted-cell RNA-seq -- see \code{inst/extdata/README.md}).
 }
 \examples{
 ref <- load_reference()
