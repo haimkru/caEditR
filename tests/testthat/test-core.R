@@ -270,3 +270,17 @@ test_that("vectorised binomial_tau2 and compute_effective_weights match the per-
   expect_equal(unname(w[2, ]), (p[2, ] * th) / sum(p[2, ] * th), ignore_attr = TRUE)
   expect_equal(compute_effective_weights(p, th, "proportion"), p)
 })
+
+test_that("caNRD_edit ML default vs the previous (v0.5 / moment) estimator", {
+  co <- simulate_edqtl_cohort(n_donors = 600, n_sites_per_type = 2, n_variants = 1, beta = 0, theta_zero_p = 0, seed = 11)
+  th <- co$theta
+  old <- suppressMessages(caNRD_edit(co$bulk_editing, co$coverage, co$proportions, th, theta_floor = 0, estimator = "moment"))
+  v05 <- suppressMessages(caNRDv0.5_edit(co$bulk_editing, co$coverage, co$proportions, th, theta_floor = 0))
+  v2  <- suppressMessages(caNRDv2_edit(co$bulk_editing, co$coverage, co$proportions, th, theta_floor = 0))
+  for (h in colnames(co$proportions)) { expect_identical(old$deconvolved[[h]], v05$deconvolved[[h]]); expect_identical(v05$deconvolved[[h]], v2$deconvolved[[h]]) }
+  new <- suppressMessages(caNRD_edit(co$bulk_editing, co$coverage, co$proportions, th, theta_floor = 0))
+  expect_named(new, c("deconvolved", "low_coverage", "diagnostics"))
+  bias <- function(o) mean(unlist(lapply(colnames(co$proportions), function(h) o$deconvolved[[h]] - co$truth$latent[[h]])), na.rm = TRUE)
+  expect_lt(abs(bias(new)), abs(bias(old)))
+  expect_lt(abs(bias(new)), 0.005)
+})

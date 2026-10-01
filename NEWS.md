@@ -1,5 +1,10 @@
 # caEditR 0.99.3
 
+* `caNRD_edit()` now uses the variance-fixed maximum-likelihood estimator (`estimator = "ml"`, default): read-sampling
+  variance from the model-predicted bulk level, ML variance components. Removes the previous estimator's downward
+  bias at low-read donors and matches oracle accuracy in simulation. The previous default is kept as
+  `caNRDv0.5_edit()` (= `caNRD_edit(estimator = "moment")`); the `caNRDv2_edit()` alias points to it.
+* Help pages: fixed unescaped `%` that broke the parsing of several caNRD_edit / caRD_edit arguments.
 * New `simulate_edqtl_cohort()` (genotypes with causal / LD / independent variants, single-cell-type, shared and
   null sites, realistic coverage, unexpressed host genes, full truth) and `simulate_bulk_expression()`.
 * `binomial_tau2()` and `compute_effective_weights()` are now vectorised in R (no Python call; the latter accepts a

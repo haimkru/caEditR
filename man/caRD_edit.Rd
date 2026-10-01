@@ -63,7 +63,7 @@ still gets a genuine, meaningful estimate for that one cell type).}
 `compute_effective_weights()`) a cell type must carry, averaged across
 samples, to be considered identifiable at a site (default `0.10`) --
 see `caNRD_edit()`'s own docs for the full justification (confirmed
-directly, in that context, that phi in the 1-10%% range still only
+directly, in that context, that phi in the 1-10\% range still only
 reaches correlation -0.06 to 0.17 with known ground truth).}
 
 \item{boundary_tiny_tol, boundary_clip_tol}{same three-way boundary

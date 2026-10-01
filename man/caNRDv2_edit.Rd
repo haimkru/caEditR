@@ -2,7 +2,7 @@
 % Please edit documentation in R/caNRDv2_edit.R
 \name{caNRDv2_edit}
 \alias{caNRDv2_edit}
-\title{caNRDv2-edit (deprecated alias -- use `caNRD_edit()`)}
+\title{caNRDv2-edit (deprecated alias of `caNRDv0.5_edit()`)}
 \usage{
 caNRDv2_edit(
   bulk_editing,
@@ -64,7 +64,7 @@ any separation at all).}
 samples, to be considered identifiable at a site (default `0.10`).
 Not being at the floor is necessary but not sufficient: a cell type
 whose theta is merely 100x smaller than another's at a site can still
-contribute a negligible (~1%) share of the bulk mixture, and its
+contribute a negligible (~1\%) share of the bulk mixture, and its
 estimate is just as unrecoverable as a floor-clamped one -- confirmed
 directly not to improve with more samples or more coverage, unlike a
 genuinely shared (e.g. ~50/50) mixture, which does carry real,
@@ -76,11 +76,11 @@ dominant cell type and a low-`phi` minority one can coexist in a
 system whose overall condition number looks fine. A direct
 calibration (phi vs. correlation with known ground truth; see
 figures/scripts_more_datasets/fig_phi_signal_ceiling.R in the parent
-catca-edit-hpc project) found phi in the 1-10%% range still only
+catca-edit-hpc project) found phi in the 1-10\% range still only
 reaches cor -0.06 to 0.17 with truth -- essentially noise, not clean
 signal, and confirmed not to improve with more samples or coverage.
 Lower to `0.01` to only screen out the clearly-worse-than-random tail
-(phi<~1%%) and retain that noisier 1-10%% range instead.}
+(phi<~1\%) and retain that noisier 1-10\% range instead.}
 
 \item{max_condition_number}{a second QC gate applied AFTER the
 floor-based reduction (default `1e4`, caEditR's own documented rule of
@@ -101,7 +101,7 @@ negative (or >1) value from a continuous estimator applied to a
 \[0,1\]-bounded true parameter is expected, healthy boundary noise,
 and a useful signal that the estimator is actually running
 (unclamped) rather than artificially forced into range. Confirmed
-directly on a real genome-wide run: 86-100%% of all remaining negative
+directly on a real genome-wide run: 86-100\% of all remaining negative
 estimates (per cell type), after the three identifiability gates
 above, already fall within this tolerance.}
 
@@ -149,14 +149,11 @@ from `expression`.}
 (e.g. `iterative`, `ridge_frac`).}
 }
 \value{
-identical to `caNRD_edit()`'s return -- see `?caNRD_edit`.
+identical to `caNRDv0.5_edit()`'s return.
 }
 \description{
-`caNRDv2_edit()`'s implementation was promoted to be the default
-`caNRD_edit()`. This name is kept as a thin, fully backward-compatible
-alias (identical function, identical arguments, identical behavior) so
-existing scripts that call `caNRDv2_edit()` explicitly keep working
-unchanged. New code should call `caNRD_edit()` directly; see its own
-docs for the full explanation of what it fixes and why. The original,
-ungated estimator this all fixes is preserved as `caNRDv0_edit()`.
+`caNRDv2_edit()` was the gated implementation that became `caNRD_edit()`; since caEditR 0.99.3 that estimator is
+preserved as [caNRDv0.5_edit()] and `caNRD_edit()` uses the variance-fixed maximum-likelihood estimator. This alias
+keeps pointing at the same gated, observed-noise estimator it always meant, so existing scripts reproduce their
+results. New code should call [caNRD_edit()].
 }

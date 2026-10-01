@@ -1,5 +1,4 @@
-#' caNRD-edit: floor-aware no-reference cell-type deconvolution (the
-#' default, gated implementation -- formerly `caNRDv2_edit()`)
+#' caNRD-edit: floor-aware no-reference cell-type deconvolution (variance-fixed, maximum-likelihood estimator)
 #'
 #' No-reference sibling of `caRD_edit()`. Deconvolves a bulk RNA-editing
 #' ratio matrix into per-cell-type estimates WITHOUT any sorted-cell
@@ -49,6 +48,21 @@
 #' results, or to rerun the same before/after comparisons used to validate
 #' this gating in the first place).
 #'
+#' Estimator (since 0.99.3). With `estimator = "ml"` (default) each site's per-cell-type means \eqn{\mu_h}, biological
+#' variances \eqn{\sigma^2_h} and an extra noise variance \eqn{\tau^2_0} are estimated by maximum likelihood under
+#' caNRD's marginal model \eqn{Y_i \sim N(\sum_h \phi_{ih}\mu_h, \sum_h \phi_{ih}^2\sigma^2_h + \tau^2_0 + \tau^2_i)}, with
+#' the read-sampling variance \eqn{\tau^2_i = m_i(1-m_i)/coverage_i} computed from the MODEL-PREDICTED bulk level
+#' \eqn{m_i} (variance-fixed caNRD), and each donor's estimate is the posterior mean
+#' \eqn{\mu_h + \phi_{ih}\sigma^2_h r_i / (\sum_k \phi_{ik}^2\sigma^2_k + \tau^2_0 + \tau^2_i)}. The previous estimator
+#' (`estimator = "moment"`, also available as [caNRDv0.5_edit()]) used the OBSERVED ratio in \eqn{\tau^2_i}, which treats
+#' donors with zero edited reads as nearly exact and biases the estimates downward. In simulation with realistic
+#' coverage (figures/scripts_more_datasetsV2/canrd_oracle_adversarial_check_V2.R) the ML estimator removed that bias
+#' (mean bias -2.05 -> -0.03 percentage points) and reached the accuracy of a reconstruction with the TRUE parameters
+#' (median per-donor correlation with the truth 0.218 vs 0.220; the moment estimator 0.165). Gating, the condition-number
+#' check, `diagnostics` and the boundary policy are unchanged. Sites whose ML fit fails are reported `NA` with status
+#' `"ml_fit_failed"`.
+#'
+#' @param estimator `"ml"` (default; variance-fixed maximum likelihood) or `"moment"` (the previous estimator).
 #' @inheritParams caNRDv0_edit
 #' @param theta_floor the floor value used when `theta` was estimated (e.g.
 #'   `estimate_theta_nnls()`'s own `floor` argument, default `1e-3`). If
@@ -74,7 +88,7 @@
 #'   \[0,1\]-bounded true parameter is expected, healthy boundary noise,
 #'   and a useful signal that the estimator is actually running
 #'   (unclamped) rather than artificially forced into range. Confirmed
-#'   directly on a real genome-wide run: 86-100%% of all remaining negative
+#'   directly on a real genome-wide run: 86-100\% of all remaining negative
 #'   estimates (per cell type), after the three identifiability gates
 #'   above, already fall within this tolerance.
 #' @param boundary_clip_tol estimates beyond `boundary_tiny_tol` but still
@@ -92,7 +106,7 @@
 #'   samples, to be considered identifiable at a site (default `0.10`).
 #'   Not being at the floor is necessary but not sufficient: a cell type
 #'   whose theta is merely 100x smaller than another's at a site can still
-#'   contribute a negligible (~1%) share of the bulk mixture, and its
+#'   contribute a negligible (~1\%) share of the bulk mixture, and its
 #'   estimate is just as unrecoverable as a floor-clamped one -- confirmed
 #'   directly not to improve with more samples or more coverage, unlike a
 #'   genuinely shared (e.g. ~50/50) mixture, which does carry real,
@@ -104,11 +118,11 @@
 #'   system whose overall condition number looks fine. A direct
 #'   calibration (phi vs. correlation with known ground truth; see
 #'   figures/scripts_more_datasets/fig_phi_signal_ceiling.R in the parent
-#'   catca-edit-hpc project) found phi in the 1-10%% range still only
+#'   catca-edit-hpc project) found phi in the 1-10\% range still only
 #'   reaches cor -0.06 to 0.17 with truth -- essentially noise, not clean
 #'   signal, and confirmed not to improve with more samples or coverage.
 #'   Lower to `0.01` to only screen out the clearly-worse-than-random tail
-#'   (phi<~1%%) and retain that noisier 1-10%% range instead.
+#'   (phi<~1\%) and retain that noisier 1-10\% range instead.
 #' @param max_condition_number a second QC gate applied AFTER the
 #'   floor-based reduction (default `1e4`, caEditR's own documented rule of
 #'   thumb for "trust much more under this"). Excluding floor-clamped cell
@@ -141,7 +155,27 @@ caNRD_edit <- function(bulk_editing, coverage = NULL, proportions, theta,
                         boundary_clip_tol = 0.05,
                         min_coverage = 10, iterative = TRUE,
                         expression = NULL, genome = c("hg19", "hg38"),
-                        coverage_scale = 1, unmapped_floor = 1, ...) {
+                        coverage_scale = 1, unmapped_floor = 1, estimator = c("ml", "moment"), ...) {
+  estimator <- match.arg(estimator)
+  .canrd_gated(bulk_editing, coverage, proportions, theta, theta_floor = theta_floor, floor_tol = floor_tol,
+               min_identifiable_celltypes = min_identifiable_celltypes, min_mean_phi = min_mean_phi,
+               max_condition_number = max_condition_number, boundary_tiny_tol = boundary_tiny_tol,
+               boundary_clip_tol = boundary_clip_tol, min_coverage = min_coverage, iterative = iterative,
+               expression = expression, genome = genome, coverage_scale = coverage_scale,
+               unmapped_floor = unmapped_floor, estimator = estimator, ...)
+}
+
+# The gated caNRD procedure shared by caNRD_edit() (estimator = "ml") and caNRDv0.5_edit() (estimator = "moment").
+.canrd_gated <- function(bulk_editing, coverage = NULL, proportions, theta,
+                        theta_floor = NULL, floor_tol = NULL,
+                        min_identifiable_celltypes = 1,
+                        min_mean_phi = 0.10,
+                        max_condition_number = 1e4,
+                        boundary_tiny_tol = 0.01,
+                        boundary_clip_tol = 0.05,
+                        min_coverage = 10, iterative = TRUE,
+                        expression = NULL, genome = c("hg19", "hg38"),
+                        coverage_scale = 1, unmapped_floor = 1, estimator = "moment", ...) {
   bulk_editing <- as.matrix(bulk_editing)
   proportions <- as.matrix(proportions)
   theta <- as.matrix(theta)
@@ -163,6 +197,7 @@ caNRD_edit <- function(bulk_editing, coverage = NULL, proportions, theta,
     ))
   }
   if (is.null(floor_tol)) floor_tol <- min(1e-9, theta_floor / 1e6)
+  cov_res <- if (estimator == "ml") .resolve_coverage(bulk_editing, coverage, expression, genome, coverage_scale, unmapped_floor)[site_ids, sample_ids, drop = FALSE] else NULL
 
   identifiable <- theta > (theta_floor + floor_tol)
 
@@ -238,7 +273,12 @@ caNRD_edit <- function(bulk_editing, coverage = NULL, proportions, theta,
         unmapped_floor = unmapped_floor, ...
       )
 
+      if (estimator == "ml") {                                          # variance-fixed ML estimates replace the moment ones
+        ml <- .canrd_ml_group(bulk_sub, cov_res[group_sites, , drop = FALSE], proportions_sub, theta_sub, min_coverage)
+        for (ct in keep_ct) fit$deconvolved[[ct]][group_sites, ] <- ml$deconvolved[[ct]]
+      }
       diag_sub <- fit$diagnostics
+      if (estimator == "ml" && length(ml$failed)) diag_sub$status[diag_sub$site_id %in% ml$failed] <- "ml_fit_failed"
       diag_sub$n_identifiable_celltypes <- length(keep_ct)
       diag_sub$excluded_celltypes <- paste(excluded_ct, collapse = ",")
 
@@ -290,6 +330,40 @@ caNRD_edit <- function(bulk_editing, coverage = NULL, proportions, theta,
   }
 
   list(deconvolved = deconvolved, low_coverage = low_coverage, diagnostics = diagnostics)
+}
+
+# Variance-fixed maximum-likelihood caNRD for a group of sites sharing their identifiable cell types: per site, fit
+# mu, sigma2 and tau2_0 of y ~ N(phi mu, phi^2 sigma2 + tau2_0 + tau2), tau2 = binomial from the fitted mean (outer
+# loop), on donors with coverage >= min_coverage, using the batched solver of caNRD_editQTL's scan engine; then the
+# posterior mean for every donor with a finite bulk value and coverage.
+.canrd_ml_group <- function(Y, CV, P, TH, min_coverage) {
+  K <- ncol(P); cts <- colnames(P); sites <- rownames(Y)
+  out <- stats::setNames(lapply(cts, function(h) matrix(NA_real_, nrow(Y), ncol(Y), dimnames = dimnames(Y))), cts)
+  PR <- vector("list", length(sites)); PH <- vector("list", length(sites)); use <- logical(length(sites))
+  for (k in seq_along(sites)) {
+    W <- sweep(P, 2, TH[k, ], `*`); phi <- .safe_row_normalize(W); PH[[k]] <- phi
+    ok <- is.finite(Y[k, ]) & is.finite(CV[k, ]) & CV[k, ] >= min_coverage
+    if (sum(ok) < K + 2) next
+    cv <- pmax(unname(CV[k, ok]), 1)
+    PR[[k]] <- list(yy = unname(Y[k, ok]), phiu = unname(phi[ok, , drop = FALSE]), Cm = NULL, cv = cv, eps = 0.5 / cv, s2i = NULL)
+    use[k] <- TRUE
+  }
+  NF <- vector("list", length(sites))
+  if (any(use)) NF[use] <- .sc_null_fit_many(PR[use], FALSE, 1e-8, 20, 1e-7)
+  failed <- character(0)
+  for (k in seq_along(sites)) {
+    nf <- NF[[k]]; if (!use[k] || is.null(nf)) { failed <- c(failed, sites[k]); next }
+    x <- PR[[k]]; w <- 1 / nf$V
+    b <- tryCatch(as.numeric(solve(crossprod(x$phiu * w, x$phiu), crossprod(x$phiu * w, x$yy))), error = function(e) NULL)
+    if (is.null(b)) { failed <- c(failed, sites[k]); next }
+    rec <- is.finite(Y[k, ]) & is.finite(CV[k, ]) & CV[k, ] > 0
+    phi <- PH[[k]][rec, , drop = FALSE]; cv <- pmax(CV[k, rec], 1); m <- as.numeric(phi %*% b)
+    mc <- pmin(pmax(m, 0.5 / cv), 1 - 0.5 / cv); tau2 <- pmax(mc * (1 - mc) / cv, 1e-10)
+    A <- sweep(phi, 2, nf$sigma2, `*`); den <- rowSums(A * phi) + nf$tau2_0 + tau2
+    z <- sweep(A, 1, (Y[k, rec] - m) / den, `*`) + matrix(b, nrow(A), K, byrow = TRUE)
+    for (j in seq_len(K)) out[[cts[j]]][k, rec] <- z[, j]
+  }
+  list(deconvolved = out, failed = failed)
 }
 
 #' Renormalize matrix rows to sum to one, without dividing by zero.
