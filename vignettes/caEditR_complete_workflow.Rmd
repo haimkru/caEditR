@@ -300,9 +300,11 @@ data.frame(celltype = colnames(eq$proportions),
            joint_reconstruction = sapply(colnames(eq$proportions), function(h) slope(rec$reconstructed[[h]][site, ])))
 ```
 
-Across all single-cell-type sites: how much of the true effect each matrix keeps in the right cell type, and how
-much genetic slope it puts into cell types without an effect (absolute, so errors in opposite directions don't
-cancel; the `truth` row is the noise floor of a slope estimated from the true cell-type editing). These slopes are diagnostics of the matrices, not association tests: the genotype-informed matrix contains
+Across all single-cell-type sites: how much of the true effect each matrix keeps in the right cell type
+(`effect_kept`), the systematic leak of the effect into cell types without one (`leak_ratio`: signed slope there as a
+fraction of the site's true effect; 0 = no leakage), and the total genetic slope there including random noise
+(`fake_effect_pp_per_allele`, absolute, so errors in opposite directions don't cancel). The `truth` row is the noise
+floor of a slope estimated from the true cell-type editing. These slopes are diagnostics of the matrices, not association tests: the genotype-informed matrix contains
 the fitted genotype effect by construction, so edQTLs are tested with `caNRD_editQTL()`, never on these matrices.
 
 ```{r leakage}
@@ -311,7 +313,7 @@ lk <- do.call(rbind, lapply(single, function(s) {
   gg <- eq$genotypes[eq$truth$causal_variant[s], ]; tgt <- sub("^only_", "", eq$truth$site_type[s])
   do.call(rbind, lapply(colnames(eq$proportions)[eq$theta[s, ] > 0], function(h) {
     sl <- function(z) if (all(is.na(z))) NA_real_ else stats::coef(stats::lm(z ~ gg))[2]
-    data.frame(site = s, celltype = h, affected = h == tgt, true_beta = eq$truth$beta[s, h],
+    data.frame(site = s, celltype = h, affected = h == tgt, true_beta = eq$truth$beta[s, h], site_beta = max(eq$truth$beta[s, ]),
                truth = sl(eq$truth$latent[[h]][s, ]), caNRD_edit = sl(plain$deconvolved[[h]][s, ]), joint = sl(rec$reconstructed[[h]][s, ]))
   }))
 }))
@@ -319,6 +321,8 @@ with(lk, data.frame(
   matrix = c("truth", "caNRD_edit", "joint_reconstruction"),
   effect_kept = c(mean(truth[affected] / true_beta[affected], na.rm = TRUE), mean(caNRD_edit[affected] / true_beta[affected], na.rm = TRUE),
                   mean(joint[affected] / true_beta[affected], na.rm = TRUE)),
+  leak_ratio = c(mean(truth[!affected] / site_beta[!affected], na.rm = TRUE), mean(caNRD_edit[!affected] / site_beta[!affected], na.rm = TRUE),
+                 mean(joint[!affected] / site_beta[!affected], na.rm = TRUE)),
   fake_effect_pp_per_allele = 100 * c(mean(abs(truth[!affected]), na.rm = TRUE), mean(abs(caNRD_edit[!affected]), na.rm = TRUE),
                                       mean(abs(joint[!affected]), na.rm = TRUE))))
 ```
