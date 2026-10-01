@@ -258,3 +258,15 @@ test_that("caNRDv0_edit() on real GSE64655 data exactly reproduces this project'
     expect_equal(mine[valid], theirs[valid], tolerance = 1e-6)
   }
 })
+
+test_that("vectorised binomial_tau2 and compute_effective_weights match the per-sample rule", {
+  expect_equal(binomial_tau2(c(0.3, 0, 1.2), c(200, 100, 50)), c(0.3 * 0.7 / 200, 1e-6, 1e-6))
+  expect_error(binomial_tau2(0.3, 0), "positive")
+  p <- matrix(c(0.6, 0.35, 0.05, 0.2, 0.5, 0.3), 2, byrow = TRUE, dimnames = list(c("s1", "s2"), c("A", "B", "C")))
+  th <- c(20, 80, 15)
+  w <- compute_effective_weights(p, th)
+  expect_equal(dim(w), dim(p)); expect_equal(rowSums(w), c(s1 = 1, s2 = 1))
+  expect_equal(unname(w[1, ]), compute_effective_weights(p[1, ], th, "phi"), ignore_attr = TRUE)
+  expect_equal(unname(w[2, ]), (p[2, ] * th) / sum(p[2, ] * th), ignore_attr = TRUE)
+  expect_equal(compute_effective_weights(p, th, "proportion"), p)
+})

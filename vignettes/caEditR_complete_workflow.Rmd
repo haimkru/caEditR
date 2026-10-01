@@ -1,0 +1,327 @@
+---
+title: "caEditR: complete workflow on simulated data (deconvolution, cell-type edQTLs, genotype-informed reconstruction)"
+author: "Haim Krupkin+Claude"
+date: "2026-09-30"
+output:
+  rmarkdown::html_document:
+    toc: true
+    toc_float: true
+vignette: >
+  %\VignetteIndexEntry{caEditR: complete workflow on simulated data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 8, fig.height = 4.5)
+```
+
+# What this vignette covers
+
+Every exported caEditR function, on simulated data with known truth, in the order of a real analysis:
+
+| step | functions |
+|---|---|
+| site ids and per-site annotation | `format_site_id()`, `map_sites_to_genes()`, `build_coverage_from_expression()` |
+| simulating cohorts | `simulate_reference()`, `simulate_proportions()`, `simulate_true_editing()`, `simulate_bulk()`, `simulate_reference_and_cohort()`, `simulate_bulk_expression()`, `simulate_edqtl_cohort()` |
+| inputs | `estimate_theta_nnls()`, `estimate_proportions_signature_matrix()`, `load_reference()`, `compute_effective_weights()`, `binomial_tau2()` |
+| deconvolution (per-sample matrices) | `caRD_edit()`, `caNRD_edit()`, `TCA_Like()`, `estimate_no_reference_params()`, `deconvolve_site()` |
+| cell-type edQTLs | `celltype_edqtl()`, `caNRD_editQTL()` (engines `"fast"`, `"reference"`, `"scan"`), `caNRD_editQTL_bootstrap()` |
+| genotype-informed matrices | `caNRD_editQTL_shrink()`, `caNRD_joint_reconstruction()` |
+
+It runs with only `module load R/4.3.3` (plus the caEditR package itself): `caRD_edit()` / `caNRD_edit()` call the
+package's bundled Python core and find a Python with numpy/scipy on their own. The two genome-annotation functions
+need the Bioconductor annotation packages (`GenomicFeatures` and a UCSC `TxDb`); their chunks run only when those are
+installed.
+
+```{r load}
+library(caEditR)
+Sys.setenv(PYTHONNOUSERSITE = "1")   # the child Python used by caRD_edit()/caNRD_edit() ignores ~/.local packages
+has_ggplot <- requireNamespace("ggplot2", quietly = TRUE)
+```
+
+# 1. Site ids and per-site annotation
+
+Every caEditR function identifies an RNA-editing site by one standardized id, `"chrom:pos:strand"` (no `"chr"`
+prefix, 1-based position, optional strand). Build them with `format_site_id()`:
+
+```{r site-ids}
+format_site_id("10", 100232436, "-")
+format_site_id("chr1", c(12831014, 12831020), c("+", "+"))
+format_site_id("X", 73820651)           # strand unknown -> "X:73820651"
+```
+
+To use host-gene **expression** as a proxy for read **coverage** (when coverage is not available), map sites to
+their host genes and turn a gene x sample expression matrix into a site x sample coverage matrix.
+`caRD_edit()` / `caNRD_edit()` can also do this themselves through their `expression =` argument.
+
+```{r annotation}
+have_annot <- requireNamespace("GenomicFeatures", quietly = TRUE) &&
+  requireNamespace("TxDb.Hsapiens.UCSC.hg38.knownGene", quietly = TRUE)
+if (have_annot) {
+  sites <- format_site_id(c("10", "10"), c(100232436, 100232925), c("-", "-"))
+  print(map_sites_to_genes(sites, genome = "hg38"))
+  expr <- matrix(c(120, 80, 45, 60), 2, 2, dimnames = list(c("ENSG00000107954", "ENSG00000000003"), c("s1", "s2")))
+  print(build_coverage_from_expression(sites, expr, genome = "hg38"))
+} else {
+  message("GenomicFeatures / TxDb.Hsapiens.UCSC.hg38.knownGene not installed: map_sites_to_genes() and ",
+          "build_coverage_from_expression() are skipped here (they need the Bioconductor annotation packages).")
+}
+```
+
+# 2. Deconvolution: per-sample cell-type editing matrices
+
+## 2.1 Simulating a cohort from its building blocks
+
+`simulate_reference()` draws per-site, per-cell-type editing means `mu`, variances `sigma2` and host-gene expression
+weights `theta`; `simulate_proportions()` draws cell-type proportions; `simulate_true_editing()` draws each sample's
+true cell-type editing; `simulate_bulk()` mixes them by RNA share and draws reads.
+
+```{r building-blocks}
+ref0 <- simulate_reference(n_sites = 4, n_celltypes = 3, seed = 1)
+p0 <- simulate_proportions(n_samples = 6, composition = c(0.6, 0.3, 0.1), seed = 1)
+e0 <- simulate_true_editing(ref0$mu, ref0$sigma2, n_samples = 6, seed = 1)   # samples x sites x cell types
+b0 <- simulate_bulk(e0, p0, ref0$theta, mean_coverage = 50, seed = 1)
+round(b0$e_bulk_obs, 3)                                                        # sites x samples observed bulk editing
+```
+
+`simulate_reference_and_cohort()` does all of this at once, with named matrices, a reference set of donors and a
+cohort to deconvolve:
+
+```{r simulate-cohort}
+cohort <- simulate_reference_and_cohort(n_sites = 150, n_celltypes = 6, n_reference_samples = 100,
+                                        n_deconvolve_samples = 600, theta_skew = 5, theta_skew_sd = 3,
+                                        mu_mode = "normal", mu_mean = 0.20, mu_sd = 0.08, mean_coverage = 100,
+                                        concentration = 10, seed = 0)
+dim(cohort$bulk_editing); dim(cohort$proportions); head(rownames(cohort$bulk_editing), 3)
+```
+
+## 2.2 Inputs: expression weights, proportions, references
+
+**theta** (relative host-gene expression per cell type) is estimated from bulk expression and proportions by
+non-negative least squares. `simulate_bulk_expression()` gives the bulk expression of each site's host gene:
+
+```{r theta}
+bulk_expr <- simulate_bulk_expression(cohort$proportions, cohort$reference_true$theta, noise_sdlog = 0.15, seed = 42)
+theta_hat <- estimate_theta_nnls(bulk_expr, cohort$proportions)
+cor(as.vector(theta_hat), as.vector(cohort$reference_true$theta))
+```
+
+**Proportions** can be estimated from bulk gene counts and a cell-type signature matrix:
+
+```{r proportions}
+set.seed(2)
+sig <- matrix(stats::rgamma(60 * 6, 2), 60, 6, dimnames = list(paste0("gene", 1:60), colnames(cohort$proportions)))
+counts <- sig %*% t(cohort$proportions[1:50, ]) * 1000
+p_hat <- estimate_proportions_signature_matrix(counts, sig)
+cor(as.vector(as.matrix(p_hat)), as.vector(cohort$proportions[1:50, ]))
+```
+
+**RNA shares** (`phi`, proportions x expression, renormalized) and the binomial read-sampling variance `tau2`:
+
+```{r phi-tau2}
+phi1 <- compute_effective_weights(cohort$proportions, theta_hat[1, ], mode = "phi")   # site 1, every sample (rows)
+round(head(phi1, 3), 3)
+round(head(binomial_tau2(cohort$bulk_editing[1, ], cohort$coverage[1, ])), 6)
+```
+
+`load_reference()` loads the reference bundled with the package (real sorted-cell editing; 1,495 sites x 6 cell
+types):
+
+```{r bundled-reference}
+bundled <- load_reference(); sapply(bundled, dim)
+```
+
+## 2.3 Three deconvolution methods
+
+```{r deconvolve}
+reference <- list(mu = cohort$reference_estimated$mu, sigma2 = cohort$reference_estimated$sigma2, theta = theta_hat)
+out_card  <- caRD_edit(cohort$bulk_editing, cohort$coverage, cohort$proportions, reference, theta_floor = 1e-3)
+out_canrd <- caNRD_edit(cohort$bulk_editing, cohort$coverage, cohort$proportions, theta_hat, theta_floor = 1e-3, iterative = TRUE)
+bulk_nz   <- cohort$bulk_editing[apply(cohort$bulk_editing, 1, stats::var) > 1e-8, , drop = FALSE]
+out_tca   <- TCA_Like(bulk_nz, cohort$proportions)          # CRAN TCA's per-sample estimates (proportions only)
+summary(out_canrd$diagnostics[, c("n_to_c_ratio", "condition_number")])
+```
+
+Scored against the known truth (R squared per cell type; `NA` estimates are cell types caEditR declines to estimate):
+
+```{r score}
+cts <- names(cohort$ground_truth)
+r2 <- data.frame(celltype = cts,
+  caRD_edit  = sapply(cts, function(h) cor(as.vector(out_card$deconvolved[[h]]), as.vector(cohort$ground_truth[[h]]), use = "complete.obs")^2),
+  caNRD_edit = sapply(cts, function(h) cor(as.vector(out_canrd$deconvolved[[h]]), as.vector(cohort$ground_truth[[h]]), use = "complete.obs")^2),
+  TCA_Like   = sapply(cts, function(h) cor(as.vector(out_tca$deconvolved[[h]]), as.vector(cohort$ground_truth[[h]][rownames(bulk_nz), ]))^2))
+print(r2, row.names = FALSE, digits = 3)
+```
+
+The building blocks of `caNRD_edit()` for one site: estimate the no-reference parameters, then the per-sample
+posterior means.
+
+```{r low-level}
+s <- 1
+phi_s <- compute_effective_weights(cohort$proportions, theta_hat[s, ], mode = "phi")
+tau2_s <- binomial_tau2(cohort$bulk_editing[s, ], cohort$coverage[s, ])
+par_s <- estimate_no_reference_params(cohort$bulk_editing[s, ], phi_s, tau2_s, iterative = TRUE)
+# deconvolve_site() is the per-sample posterior mean (one sample at a time); first 5 samples:
+z_s <- t(vapply(1:5, function(i) deconvolve_site(cohort$bulk_editing[s, i], phi_s[i, ], tau2_s[i], par_s$mu_hat, par_s$sigma2_hat),
+                numeric(ncol(phi_s))))
+round(par_s$mu_hat, 3); round(z_s, 3)
+```
+
+(`caNRDv0_edit()`, `caNRDv2_edit()` and `caRDv0_edit()` are the earlier and explicitly versioned forms of
+`caNRD_edit()` / `caRD_edit()`, kept for reproducibility of older analyses.)
+
+# 3. Cell-type edQTLs
+
+## 3.1 An edQTL cohort with known genetic effects
+
+`simulate_edqtl_cohort()` simulates donors, genotypes (several cis variants per site: one causal, two in LD with
+it, the rest independent), realistic read depth, host genes not expressed in some cell types, and sites with an effect
+in one cell type, a shared effect, or none:
+
+```{r edqtl-cohort}
+eq <- simulate_edqtl_cohort(n_donors = 800, n_sites_per_type = 4, n_variants = 5, beta = 0.06, seed = 7)
+table(eq$truth$site_type)
+dim(eq$genotypes); head(eq$pairs, 3)
+summary(as.vector(eq$coverage))
+theta_eq <- estimate_theta_nnls(eq$bulk_expression, eq$proportions)    # expression weights from bulk expression
+```
+
+## 3.2 Testing: celltype_edqtl() and caNRD_editQTL()
+
+Both fit the genotype x RNA-share mixture model jointly across cell types on bulk editing, so a genetic effect is
+attributed to the cell type whose RNA share it follows (per-sample matrices tested one cell type at a time leak the
+signal into the others). `caNRD_editQTL()` uses caNRD's latent-variable variance model and likelihood-ratio tests;
+its engines compute the same estimator (`"fast"`, `"reference"`) or, for genome-wide cis scans, test all variants of
+a site at that site's genotype-free variance and re-fit the lead variant exactly (`"scan"`).
+
+```{r edqtl-test}
+causal <- data.frame(site_id = names(eq$truth$causal_variant), variant_id = unname(eq$truth$causal_variant))
+t_ct   <- system.time(r_ct   <- celltype_edqtl(eq$bulk_editing, eq$genotypes, eq$proportions, theta_eq, theta_floor = 1e-3,
+                                               pairs = causal, coverage = eq$coverage))[["elapsed"]]
+t_fast <- system.time(r_fast <- caNRD_editQTL(eq$bulk_editing, eq$genotypes, eq$proportions, theta_eq, theta_floor = 1e-3,
+                                              pairs = causal, coverage = eq$coverage))[["elapsed"]]
+t_scan <- system.time(r_scan <- caNRD_editQTL(eq$bulk_editing, eq$genotypes, eq$proportions, theta_eq, theta_floor = 1e-3,
+                                              pairs = eq$pairs, coverage = eq$coverage, engine = "scan"))[["elapsed"]]
+r_ref  <- caNRD_editQTL(eq$bulk_editing[1:2, ], eq$genotypes, eq$proportions, theta_eq[1:2, ], theta_floor = 1e-3,
+                        pairs = causal[1:2, ], coverage = eq$coverage[1:2, ], engine = "reference")
+c(celltype_edqtl_s = t_ct, fast_s = t_fast, scan_all_pairs_s = t_scan)
+all.equal(r_ref$beta, r_fast$beta[r_fast$site_id %in% causal$site_id[1:2]], tolerance = 1e-3)
+```
+
+Calls at the causal variants (p < 0.001) against the truth: the true cell type should be found, and the others
+rarely called.
+
+```{r edqtl-calls}
+truth_long <- data.frame(site_id = rep(rownames(eq$truth$beta), ncol(eq$truth$beta)),
+                         celltype = rep(colnames(eq$truth$beta), each = nrow(eq$truth$beta)),
+                         beta_true = as.vector(eq$truth$beta))
+score <- function(r, name) {
+  m <- merge(r[r$status == "tested", c("site_id", "celltype", "beta", "p")], truth_long, by = c("site_id", "celltype"))
+  data.frame(method = name, power_true_celltype = mean(m$p[m$beta_true != 0] < 1e-3),
+             wrong_celltype_rate = mean(m$p[m$beta_true == 0] < 1e-3), cor_beta = cor(m$beta, m$beta_true))
+}
+rbind(score(r_ct, "celltype_edqtl"), score(r_fast, "caNRD_editQTL fast"),
+      score(r_scan[r_scan$variant_id %in% causal$variant_id, ], "caNRD_editQTL scan (causal variants)"))
+```
+
+The scan engine tests every variant; the lead variant of each site (re-fitted exactly) is usually the causal one or a
+variant in LD with it:
+
+```{r scan-leads}
+leads <- unique(r_scan[r_scan$refined, c("site_id", "variant_id", "p_site")])
+leads$role <- eq$truth$variants$role[match(leads$variant_id, eq$truth$variants$variant_id)]
+leads$site_type <- eq$truth$site_type[leads$site_id]
+table(site_type = leads$site_type, lead_variant = leads$role)
+```
+
+Bootstrap fits (resampling donors) give parameter uncertainty for reconstruction intervals:
+
+```{r bootstrap}
+boot <- caNRD_editQTL_bootstrap(eq$bulk_editing, eq$genotypes, eq$proportions, theta_eq, theta_floor = 1e-3,
+                                pairs = causal, coverage = eq$coverage, n_boot = 5, seed = 1)
+length(boot); sd(sapply(boot, function(f) f$beta[1]))
+```
+
+# 4. Genotype-informed cell-type editing matrices
+
+`caNRD_joint_reconstruction()` reconstructs per-donor cell-type editing like `caNRD_edit()`, but uses the joint
+genotype effects of a `caNRD_editQTL()` fit (one variant per site) so the genetic signal is placed in the cell type
+it belongs to before the remaining bulk signal is shared out. `caNRD_editQTL_shrink()` first shrinks the betas
+(multivariate point-normal empirical Bayes, the recommended setting), which reduces the false genetic structure that
+noisy betas would otherwise write into unaffected cell types. The discovery results (`r_fast`) are not modified.
+
+```{r reconstruct}
+shrunk <- caNRD_editQTL_shrink(r_fast, eq$bulk_editing, eq$genotypes, eq$proportions, theta_eq, theta_floor = 1e-3,
+                               coverage = eq$coverage, min_sites = 10)
+attr(shrunk, "prior")
+rec <- caNRD_joint_reconstruction(eq$bulk_editing, eq$genotypes, eq$proportions, theta_eq, theta_floor = 1e-3,
+                                  fit = shrunk, coverage = eq$coverage, boot_fits = boot)
+table(rec$diagnostics$status)
+plain <- caNRD_edit(eq$bulk_editing, eq$coverage, eq$proportions, theta_eq, theta_floor = 1e-3, iterative = TRUE)
+```
+
+One Monocyte-only site: genetic slope per cell type in the truth, the plain caNRD matrix and the genotype-informed
+matrix (percentage points of editing per allele).
+This toy cohort has only a few sites per cell type, so the shrinkage prior (`attr(shrunk, "prior")`) is estimated
+from 13-23 sites and can shrink a real effect strongly; with genome-wide data (thousands of sites) it is estimated far
+better.
+
+```{r one-site}
+site <- names(eq$truth$site_type)[eq$truth$site_type == "only_Monocytes"][1]
+g <- eq$genotypes[eq$truth$causal_variant[site], ]
+slope <- function(z) if (all(is.na(z))) NA_real_ else 100 * stats::coef(stats::lm(z ~ g))[2]
+data.frame(celltype = colnames(eq$proportions),
+           expressed = eq$theta[site, ] > 0,
+           truth = sapply(colnames(eq$proportions), function(h) slope(eq$truth$latent[[h]][site, ])),
+           caNRD_edit = sapply(colnames(eq$proportions), function(h) slope(plain$deconvolved[[h]][site, ])),
+           joint_reconstruction = sapply(colnames(eq$proportions), function(h) slope(rec$reconstructed[[h]][site, ])))
+```
+
+Across all single-cell-type sites: how much of the true effect each matrix keeps in the right cell type, and how
+much genetic slope it puts into cell types without an effect (absolute, so errors in opposite directions don't
+cancel). These slopes are diagnostics of the matrices, not association tests: the genotype-informed matrix contains
+the fitted genotype effect by construction, so edQTLs are tested with `caNRD_editQTL()`, never on these matrices.
+
+```{r leakage}
+single <- names(eq$truth$site_type)[grepl("^only_", eq$truth$site_type)]
+lk <- do.call(rbind, lapply(single, function(s) {
+  gg <- eq$genotypes[eq$truth$causal_variant[s], ]; tgt <- sub("^only_", "", eq$truth$site_type[s])
+  do.call(rbind, lapply(colnames(eq$proportions)[eq$theta[s, ] > 0], function(h) {
+    sl <- function(z) if (all(is.na(z))) NA_real_ else stats::coef(stats::lm(z ~ gg))[2]
+    data.frame(site = s, celltype = h, affected = h == tgt, true_beta = eq$truth$beta[s, h],
+               caNRD_edit = sl(plain$deconvolved[[h]][s, ]), joint = sl(rec$reconstructed[[h]][s, ]))
+  }))
+}))
+with(lk, data.frame(
+  matrix = c("caNRD_edit", "joint_reconstruction"),
+  effect_kept = c(mean(caNRD_edit[affected], na.rm = TRUE), mean(joint[affected], na.rm = TRUE)) / 0.06,
+  fake_effect_pp_per_allele = 100 * c(mean(abs(caNRD_edit[!affected]), na.rm = TRUE), mean(abs(joint[!affected]), na.rm = TRUE))))
+```
+
+Interval widths from the bootstrap fits (`total_sd`) vs. the parameter-conditional ones (`conditional_sd`):
+
+```{r intervals}
+h <- "Monocytes"
+c(conditional_sd = median(rec$conditional_sd[[h]], na.rm = TRUE), total_sd = median(rec$total_sd[[h]], na.rm = TRUE))
+```
+
+```{r plot-site, fig.alt = "Editing by genotype for one Monocyte-only site: truth, caNRD_edit and genotype-informed reconstruction."}
+if (has_ggplot) {
+  d <- do.call(rbind, lapply(c("truth", "caNRD_edit", "joint_reconstruction"), function(src) {
+    M <- switch(src, truth = eq$truth$latent, caNRD_edit = plain$deconvolved, joint_reconstruction = rec$reconstructed)
+    do.call(rbind, lapply(colnames(eq$proportions)[eq$theta[site, ] > 0], function(hh)
+      data.frame(source = src, celltype = hh, genotype = factor(g), editing = 100 * M[[hh]][site, ])))
+  }))
+  d$source <- factor(d$source, levels = c("truth", "caNRD_edit", "joint_reconstruction"))
+  ggplot2::ggplot(d, ggplot2::aes(genotype, editing)) + ggplot2::geom_boxplot(outlier.size = 0.3) +
+    ggplot2::facet_grid(source ~ celltype, scales = "free_y") + ggplot2::theme_bw() +
+    ggplot2::labs(y = "editing (%)", x = "alternate allele count", title = paste("Monocyte-only site", site))
+}
+```
+
+# Session info
+
+```{r session}
+sessionInfo()
+```

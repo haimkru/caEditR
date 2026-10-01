@@ -2,37 +2,48 @@
 #'
 #' This is the core of the algorithm, and contains the main points of RNA editing deconvultion.
 #'
-#' @param p numeric vector, cell-type proportions for one sample (sums to 1).
-#' @param theta numeric vector, same length as `p`, relative expression of
-#'   the gene containing this site in each cell type.
+#' Same rule as the vendored `core.compute_effective_weights` (`p*theta/sum(p*theta)`, or `p/sum(p)`), in vectorised R.
+#'
+#' @param p numeric vector of cell-type proportions for one sample, or a samples x cell types matrix (one row per
+#'   sample; each row is normalised separately).
+#' @param theta numeric vector with one value per cell type (the relative expression of the site's host gene), or a
+#'   matrix of the same shape as `p`.
 #' @param mode "phi" (default, coverage/expression-aware) or "proportion"
 #'   (TCA-mixing's plain proportion weighting, theta ignored).
-#' @return numeric vector of weights summing to 1.
+#' @return weights summing to 1: a vector for a vector `p`, a matrix (same dimnames) for a matrix `p`.
 #' @examples
 #' compute_effective_weights(c(0.60, 0.35, 0.05), c(20, 80, 15))
 #' @export
 compute_effective_weights <- function(p, theta, mode = c("phi", "proportion")) {
   mode <- match.arg(mode)
-  out <- .run_python_op("compute_effective_weights", list(p = as.numeric(p), theta = as.numeric(theta), mode = mode))
-  as.numeric(out$phi)
+  P <- if (is.matrix(p)) p else matrix(p, nrow = 1)
+  Th <- if (is.matrix(theta)) theta else matrix(theta, nrow(P), length(theta), byrow = TRUE)
+  if (!identical(dim(Th), dim(P))) stop("p and theta must have the same shape (theta: one value per cell type, or a matrix like p)", call. = FALSE)
+  raw <- if (mode == "phi") P * Th else P
+  tot <- rowSums(raw)
+  if (any(!(tot > 0))) stop("effective weights sum to zero; check p and theta are non-negative and not all zero", call. = FALSE)
+  w <- raw / tot
+  if (is.matrix(p)) { dimnames(w) <- dimnames(p); w } else stats::setNames(as.numeric(w), names(p))
 }
 
 #' Binomial measurement-noise variance of an observed bulk editing ratio
 #'
-#' Thin wrapper around the vendored, unmodified `core.binomial_tau2`.
-#' `tau2 = e*(1-e)/coverage` (floored), the sampling variance of an editing
+#' Same rule as the vendored `core.binomial_tau2`, in vectorised R:
+#' `tau2 = e*(1-e)/coverage` (e clipped to \[0,1\], floored), the sampling variance of an editing
 #' ratio measured from a finite number of reads.
 #'
-#' @param e_bulk observed bulk editing ratio in \\[0,1\\].
-#' @param coverage total read depth at this site in this sample, > 0.
+#' @param e_bulk observed bulk editing ratio(s) in \[0,1\] (scalar or vector).
+#' @param coverage total read depth(s), > 0 (recycled with `e_bulk`).
 #' @param floor minimum variance returned (default 1e-6).
-#' @return numeric scalar, tau2.
+#' @return numeric, tau2 (same length as the recycled inputs).
 #' @examples
 #' binomial_tau2(0.3, 200)
 #' @export
 binomial_tau2 <- function(e_bulk, coverage, floor = 1e-6) {
-  out <- .run_python_op("binomial_tau2", list(e_bulk = e_bulk, coverage = coverage, floor = floor))
-  as.numeric(out$tau2)
+  # pure-R, vectorised version of core.binomial_tau2 (same rule; recycled over e_bulk / coverage)
+  if (any(!(coverage > 0), na.rm = TRUE) || anyNA(coverage)) stop("coverage must be positive", call. = FALSE)
+  e <- pmin(pmax(e_bulk, 0), 1)
+  pmax(e * (1 - e) / coverage, floor)
 }
 
 #' Closed-form conditional-mean per-cell-type editing estimate at one site/sample

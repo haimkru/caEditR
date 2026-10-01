@@ -1,5 +1,10 @@
 # caEditR 0.99.3
 
+* New `simulate_edqtl_cohort()` (genotypes with causal / LD / independent variants, single-cell-type, shared and
+  null sites, realistic coverage, unexpressed host genes, full truth) and `simulate_bulk_expression()`.
+* `binomial_tau2()` and `compute_effective_weights()` are now vectorised in R (no Python call; the latter accepts a
+  samples x cell types matrix and normalises each row).
+* New vignette `caEditR_complete_workflow`: every exported function on simulated data.
 * Compiled kernels (Rcpp, `src/scan_kernels.cpp`) for the scan engine: per-variant statistics in one pass and the
   per-variant K x K algebra; results identical to the R code (<= 5e-13). `refine = "lead"` (default) re-fits the lead
   variant of each site exactly. Genotype range checks no longer build temporary matrices.

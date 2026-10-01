@@ -7,19 +7,23 @@
 compute_effective_weights(p, theta, mode = c("phi", "proportion"))
 }
 \arguments{
-\item{p}{numeric vector, cell-type proportions for one sample (sums to 1).}
+\item{p}{numeric vector of cell-type proportions for one sample, or a samples x cell types matrix (one row per
+sample; each row is normalised separately).}
 
-\item{theta}{numeric vector, same length as `p`, relative expression of
-the gene containing this site in each cell type.}
+\item{theta}{numeric vector with one value per cell type (the relative expression of the site's host gene), or a
+matrix of the same shape as `p`.}
 
 \item{mode}{"phi" (default, coverage/expression-aware) or "proportion"
 (TCA-mixing's plain proportion weighting, theta ignored).}
 }
 \value{
-numeric vector of weights summing to 1.
+weights summing to 1: a vector for a vector `p`, a matrix (same dimnames) for a matrix `p`.
 }
 \description{
 This is the core of the algorithm, and contains the main points of RNA editing deconvultion.
+}
+\details{
+Same rule as the vendored `core.compute_effective_weights` (`p*theta/sum(p*theta)`, or `p/sum(p)`), in vectorised R.
 }
 \examples{
 compute_effective_weights(c(0.60, 0.35, 0.05), c(20, 80, 15))
