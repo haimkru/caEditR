@@ -1,3 +1,5 @@
 ^dev_reinstall\.R$
 ^example_run_local\.R$
 ^example_run_local_output$
+^scheme\.png$
+^README\.md$
