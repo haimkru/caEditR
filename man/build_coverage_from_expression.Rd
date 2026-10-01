@@ -51,6 +51,7 @@ available. This is an approximation, not real read coverage -- prefer
 real per-site coverage from your editing calls whenever you have it.
 }
 \examples{
+\dontshow{if (requireNamespace("GenomicFeatures", quietly = TRUE) && requireNamespace("TxDb.Hsapiens.UCSC.hg38.knownGene", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 extdata <- system.file("extdata", package = "caEditR")
 bulk <- read.csv(file.path(extdata, "example_bulk_editing_ratios.csv"), row.names = 1)
 site_ids <- rownames(bulk)[1:3]
@@ -61,4 +62,5 @@ genes <- map_sites_to_genes(site_ids, genome = "hg38")$ensembl_gene_id
 expression <- matrix(c(50, 200, 30, 400, 20, 5), nrow = length(genes),
                       dimnames = list(genes, c("sampleA", "sampleB")))
 build_coverage_from_expression(site_ids, expression, genome = "hg38")
+\dontshow{\}) # examplesIf}
 }

@@ -43,9 +43,11 @@ ADAR-edited sites in overlapping sense/antisense transcripts); ties are
 broken by taking the first match, deterministically.
 }
 \examples{
+\dontshow{if (requireNamespace("GenomicFeatures", quietly = TRUE) && requireNamespace("TxDb.Hsapiens.UCSC.hg38.knownGene", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 # Real site ids bundled with this package (GRCh38/hg38 coordinates --
 # see this project's own README for the alignment pipeline's genome build).
 extdata <- system.file("extdata", package = "caEditR")
 bulk <- read.csv(file.path(extdata, "example_bulk_editing_ratios.csv"), row.names = 1)
 map_sites_to_genes(rownames(bulk)[1:3], genome = "hg38")
+\dontshow{\}) # examplesIf}
 }
