@@ -25,7 +25,7 @@ Every exported caEditR function, on simulated data with known truth, in the orde
 | site ids and per-site annotation | `format_site_id()`, `map_sites_to_genes()`, `build_coverage_from_expression()` |
 | simulating cohorts | `simulate_reference()`, `simulate_proportions()`, `simulate_true_editing()`, `simulate_bulk()`, `simulate_reference_and_cohort()`, `simulate_bulk_expression()`, `simulate_edqtl_cohort()` |
 | inputs | `estimate_theta_nnls()`, `estimate_proportions_signature_matrix()`, `load_reference()`, `compute_effective_weights()`, `binomial_tau2()` |
-| deconvolution (per-sample matrices) | `caRD_edit()`, `caNRD_edit()`, `TCA_Like()`, `estimate_no_reference_params()`, `deconvolve_site()` |
+| deconvolution (per-sample matrices) | `caRD_edit()`, `caNRD_edit()` (and earlier versions `caNRDv0.5_edit()`, `caNRDv0_edit()`), `TCA_Like()`, `estimate_no_reference_params()`, `deconvolve_site()` |
 | cell-type edQTLs | `celltype_edqtl()`, `caNRD_editQTL()` (engines `"fast"`, `"reference"`, `"scan"`), `caNRD_editQTL_bootstrap()` |
 | genotype-informed matrices | `caNRD_editQTL_shrink()`, `caNRD_joint_reconstruction()` |
 
@@ -168,8 +168,20 @@ z_s <- t(vapply(1:5, function(i) deconvolve_site(cohort$bulk_editing[s, i], phi_
 round(par_s$mu_hat, 3); round(z_s, 3)
 ```
 
-(`caNRDv0_edit()`, `caNRDv2_edit()` and `caRDv0_edit()` are the earlier and explicitly versioned forms of
-`caNRD_edit()` / `caRD_edit()`, kept for reproducibility of older analyses.)
+`caNRD_edit()` estimates each site's parameters by maximum likelihood with the read-sampling variance taken from the
+model-predicted bulk level ("variance-fixed" caNRD). The previous estimator, which used each donor's observed ratio
+and is biased downward at low-read donors, is kept as `caNRDv0.5_edit()` (alias `caNRDv2_edit()`); `caNRDv0_edit()`
+is the original ungated version and `caRDv0_edit()` the original `caRD_edit()`. Comparing the two caNRD estimators
+against the truth on this cohort:
+
+```{r canrd-versions}
+out_v05 <- caNRDv0.5_edit(cohort$bulk_editing, cohort$coverage, cohort$proportions, theta_hat, theta_floor = 1e-3, iterative = TRUE)
+data.frame(celltype = cts,
+  caNRD_edit = sapply(cts, function(h) cor(as.vector(out_canrd$deconvolved[[h]]), as.vector(cohort$ground_truth[[h]]), use = "complete.obs")^2),
+  caNRDv0.5_edit = sapply(cts, function(h) cor(as.vector(out_v05$deconvolved[[h]]), as.vector(cohort$ground_truth[[h]]), use = "complete.obs")^2),
+  bias_caNRD_edit_pp = sapply(cts, function(h) 100 * mean(out_canrd$deconvolved[[h]] - cohort$ground_truth[[h]], na.rm = TRUE)),
+  bias_caNRDv0.5_pp = sapply(cts, function(h) 100 * mean(out_v05$deconvolved[[h]] - cohort$ground_truth[[h]], na.rm = TRUE)))
+```
 
 # 3. Cell-type edQTLs
 
