@@ -23,8 +23,8 @@ Please read the vignettes and run them a single time, they should work end to en
 
 | vignette | contents |
 |---|---|
-| `vignette("caEditR")` | Introduction: simulate a cohort, deconvolve it with `caRD_edit()`, `caNRD_edit()` and `TCA_Like()`, score against the truth, then run on real GSE64655 PBMC data. |
-| `vignette("caEditR_complete_workflow")` | Every exported function on simulated data with known truth: inputs (theta, proportions), deconvolution, cell-type edQTL testing (`celltype_edqtl()`, `caNRD_editQTL()` with its three engines, bootstrap), shrinkage and genotype-informed reconstruction. |
+| `vignette("caEditR")` | The more basic introduction: simulate a cohort, deconvolve it with `caRD_edit()`, `caNRD_edit()` and `TCA_Like()`, score against the truth, then run on real GSE64655 PBMC data. |
+| `vignette("caEditR_complete_workflow")` | The more compelx introduction, with key functions and concepts such as; deconvolution, cell-type edQTL testing (`celltype_edqtl()`, `caNRD_editQTL()` with its three engines, bootstrap), shrinkage and genotype-informed reconstruction. Has almost all the functions and how to use them. |
 
 ## Functions
 
