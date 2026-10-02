@@ -32,20 +32,19 @@ Please read the vignettes and run them a single time, they should work end to en
 |---|---|---|
 | site ids | `format_site_id()` | `"chrom:pos:strand"`, no `chr` prefix |
 | site to gene, coverage from expression | `map_sites_to_genes()`, `build_coverage_from_expression()` | get "coverage" by using expression as proxy. |
-| expression weights theta | `estimate_theta_nnls()` | NNLS; entries at `floor` (1e-3) mean "not expressed" |
-| cell-type proportions | `estimate_proportions_signature_matrix()` | NNLS against any signature matrix |
-| RNA shares, read noise | `compute_effective_weights()`, `binomial_tau2()` | phi = normalise(p x theta); tau2 = e(1-e)/coverage |
-| deconvolution with a reference | `caRD_edit()`, `load_reference()` | needs sorted-cell mu / sigma2 / theta |
-| deconvolution without a reference | `caNRD_edit()` | variance-fixed maximum likelihood (default since 0.99.3) |
-| earlier caNRD versions | `caNRDv0.5_edit()` (= `caNRD_edit(estimator = "moment")`; alias `caNRDv2_edit()`), `caNRDv0_edit()`, `caRDv0_edit()` | kept to reproduce earlier results |
-| low-level caNRD steps | `estimate_no_reference_params()`, `deconvolve_site()` | building blocks of the moment estimator |
-| TCA baseline | `TCA_Like()` | wraps CRAN `TCA`, proportions only |
-| cell-type edQTL test | `celltype_edqtl()` | IRLS genotype x phi model, Wald/HC3 |
-| cell-type edQTL test (caNRD model) | `caNRD_editQTL()` | joint ML model, LRTs; engines `"fast"` (default), `"reference"`, `"scan"` |
-| parameter uncertainty | `caNRD_editQTL_bootstrap()` | donor bootstrap fits, used for reconstruction intervals |
-| effect shrinkage | `caNRD_editQTL_shrink()` | multivariate point-normal empirical Bayes; needs many sites (hundreds or more) |
-| genotype-informed matrices | `caNRD_joint_reconstruction()` | per-donor cell-type editing using the fitted genotype effects |
-| simulation | `simulate_reference_and_cohort()`, `simulate_reference()`, `simulate_proportions()`, `simulate_true_editing()`, `simulate_bulk()`, `simulate_bulk_expression()`, `simulate_edqtl_cohort()` | known ground truth |
+| expression weights theta | `estimate_theta_nnls()` | A way to estimate the expression contribution using NNLS algorithm |
+| cell-type proportions | `estimate_proportions_signature_matrix()` | NNLS against any signature matrix, a way to use NNLS to get cell type proportions |
+| RNA shares, read noise | `compute_effective_weights()`, `binomial_tau2()` | a way to get RNA share and account for noise. |
+| deconvolution with a reference | `caRD_edit()`, `load_reference()` | this lets us do cell type Deconvultion using a refrence |
+| deconvolution without a reference | `caNRD_edit()` | Our method for "no refrence" RNA editing estimation  |
+| earlier caNRD versions | `caNRDv0.5_edit()` (= `caNRD_edit(estimator = "moment")`; alias `caNRDv2_edit()`), `caNRDv0_edit()`, `caRDv0_edit()` | These are older versions of caNRD. Functionality stored, but they have bugs. |
+| low-level caNRD steps | `estimate_no_reference_params()`, `deconvolve_site()` | These are mostly for development, they are used by caNRD |
+| TCA baseline | `TCA_Like()` | Runs the published TCA method (CRAN `TCA` package) using cell-type proportions only. |
+| cell-type edQTL test (quick) | `celltype_edqtl()` | Tests whether genotype affects editing in each cell type, weighting each cell type by proportions share of the RNA. Similar to interaction term.|
+| cell-type edQTL test (main) | `caNRD_editQTL()` | Fits the full caNRD model, so it accounts for donor-to-donor variation in each cell type and for read-count noise. Engines: `"fast"`(default, uses heuristics), `"scan"`(fast, usefully for large cohorts), `"reference"`(most accurrate, slow) |
+| parameter uncertainty | `caNRD_editQTL_bootstrap()` | Re-runs the edQTL fit by bootstraping and resampled donors to measure how uncertain the beta estimates are. |
+| genotype-informed matrices | `caNRD_joint_reconstruction()` | Builds per-donor, per-cell-type editing matrices that keep each site's genetic effect in the cell type it belongs to. it has less leakyness then caNRD but requires genotypes and a large cohort |
+| simulation | `simulate_reference_and_cohort()`, `simulate_reference()`, `simulate_proportions()`, `simulate_true_editing()`, `simulate_bulk()`, `simulate_bulk_expression()`, `simulate_edqtl_cohort()` | Generate simulated cohorts where the true answer is known, for testing, development, and benchmarking. `simulate_edqtl_cohort()` also simulates genotypes with real genetic effects. |
 
 ## Quick start: cell-type edQTLs on simulated data
 
