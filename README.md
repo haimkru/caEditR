@@ -17,17 +17,6 @@ if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
 remotes::install_github("haimkru/caEditR", build_vignettes = TRUE)
 ```
 
-Requirements:
-
-- R >= 4.1 and a C++ compiler (the package has compiled Rcpp code, `src/scan_kernels.cpp`).
-- Python >= 3.9 with numpy and scipy for `caRD_edit()`, `caNRDv0.5_edit()` / `caNRD_edit(estimator = "moment")`,
-  `caNRDv0_edit()`, `estimate_no_reference_params()`, `deconvolve_site()` and the `simulate_reference*()` /
-  `simulate_bulk()` family, which run bundled Python code in a subprocess. Point caEditR at your Python with
-  `options(caEditR.python = "/path/to/python3")` or the `CAEDITR_PYTHON` environment variable. `caNRD_edit()`
-  (default estimator), the edQTL functions, `caNRD_joint_reconstruction()` and `simulate_edqtl_cohort()` are pure R/C++.
-- Optional: `TCA` (for `TCA_Like()`); `GenomicFeatures`, `TxDb.Hsapiens.UCSC.hg19/hg38.knownGene`, `org.Hs.eg.db`
-  and `AnnotationDbi` (for `map_sites_to_genes()` / `build_coverage_from_expression()`); `ggplot2` for vignette plots.
-
 ## Example
 
 Please read the vignettes and run them a single time, they should work end to end.
