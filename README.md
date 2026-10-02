@@ -68,29 +68,4 @@ rec <- caNRD_joint_reconstruction(eq$bulk_editing, eq$genotypes, eq$proportions,
 dim(rec$reconstructed$Monocytes)                                           # sites x donors
 ```
 
-`theta_floor` is required by the edQTL functions: use the `floor` that `estimate_theta_nnls()` applied (1e-3 by
-default), or 0 for true theta. Cell types whose theta is at the floor, or whose mean RNA share is below `min_mean_phi`
-(0.10), are not tested at that site (`status = "not_identifiable"`). Test edQTLs with `caNRD_editQTL()`, not by
-regressing the reconstructed matrices on genotype: those matrices contain the fitted genotype effect by construction,
-so the test would be circular. With hundreds or more sites, shrink the fit first (`fit <- caNRD_editQTL_shrink(fit, ...)`),
-the benchmarked recommended setting.
-
-## GTEx-scale notes
-
-- **Use `engine = "scan"` for genome-wide cis scans.** Per site, the variance components are estimated once from the
-  genotype-free model; every variant is then tested by GLS at that fixed variance, batched over variants with compiled
-  kernels (tensorQTL/EMMAX-style). For these rows `p` and `p_site` are Wald tests. The lead variant of each site
-  (`refine = "lead"`, default) is re-fitted with the exact engine (likelihood-ratio tests, `refined = TRUE`).
-- **Speed** (one core, 700 donors, 4 cell types): about 40 ms per site for the genotype-free fit plus 0.1-0.2 ms per
-  additional (site, variant) pair; the lead re-fit adds about 0.1 s per site.
-- **Missing genotypes:** by default a variant with any missing dosage gets its own genotype-free fit (exact, but much
-  slower). `impute_genotypes = "mean"` replaces missing dosages by the variant mean, as tensorQTL does, and keeps the
-  scan fast.
-- `caNRD_edit()` takes about 40 ms per site at 700 donors. `caNRD_editQTL_shrink()` about 1 ms per site.
-  `caNRD_joint_reconstruction()` about 1-2 ms per site, linear in sites; for many sites stream its results to disk
-  with `out_dir` or `write_fn`, and lower `chunk_size` if memory is tight.
-- Covariates (genotype PCs, technical factors) go in `covariates =`. Leaving out a confounder inflates false positives.
-- Large errors in `theta` cause cross-cell-type misattribution: in simulation theta off by about 2x was harmless,
-  about 4x was not.
-
 # For problems - please contant haim krupkin at: hkrupkin@stanford.edu
