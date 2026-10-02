@@ -31,7 +31,7 @@ Please read the vignettes and run them a single time, they should work end to en
 | task | function | notes |
 |---|---|---|
 | site ids | `format_site_id()` | `"chrom:pos:strand"`, no `chr` prefix |
-| site to gene, coverage from expression | `map_sites_to_genes()`, `build_coverage_from_expression()` | hg19/hg38 UCSC TxDb; optional packages |
+| site to gene, coverage from expression | `map_sites_to_genes()`, `build_coverage_from_expression()` | get "coverage" by using expression as proxy. |
 | expression weights theta | `estimate_theta_nnls()` | NNLS; entries at `floor` (1e-3) mean "not expressed" |
 | cell-type proportions | `estimate_proportions_signature_matrix()` | NNLS against any signature matrix |
 | RNA shares, read noise | `compute_effective_weights()`, `binomial_tau2()` | phi = normalise(p x theta); tau2 = e(1-e)/coverage |
