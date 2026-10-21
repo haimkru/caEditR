@@ -6,10 +6,8 @@ MIT License (see `LICENSE`).
 
 Written by Haim Krupkin+Claude.
 
-caEditR splits bulk RNA-editing ratios (sites x samples) into per-cell-type editing matrices, tests genetic effects on
-editing in each cell type (cell-type edQTLs) directly on the bulk data, and rebuilds per-donor cell-type editing
-matrices using those genetic effects.
-
+caEditR splits bulk RNA-editing ratios (sites x samples) into per-cell-type per editing site matrices, tests genetic effects on
+editing in each cell type (cell-type edQTLs) directly on the bulk data.
 ## Install in R
 
 ```r
