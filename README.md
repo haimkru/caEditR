@@ -51,7 +51,7 @@ Please read the vignettes and run them a single time, they should work end to en
 ```r
 library(caEditR)
 eq <- simulate_edqtl_cohort(n_donors = 600, n_sites_per_type = 5, n_variants = 5, seed = 1)
-theta <- estimate_theta_nnls(eq$bulk_expression, eq$proportions)          # NNLS floor = 1e-3
+theta <- estimate_theta_nnls(eq$bulk_expression, eq$proportions)        
 
 # cis scan: every (site, variant) pair; the lead variant of each site is re-fitted exactly
 scan <- caNRD_editQTL(eq$bulk_editing, eq$genotypes, eq$proportions, theta, theta_floor = 1e-3,
