@@ -4,6 +4,7 @@
 
 MIT License (see `LICENSE`). 
 
+This is an alpha version, not yet fully verified for public release, please await peer review article for full robustness analysis as well as citation.
 
 caEditR splits bulk RNA-editing ratios (sites x samples) into per-cell-type per editing site matrices, tests genetic effects on
 editing in each cell type (cell-type edQTLs) directly on the bulk data.
